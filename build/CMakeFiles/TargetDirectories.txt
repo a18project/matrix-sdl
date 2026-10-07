@@ -1,0 +1,7 @@
+/home/iken/projects/matrix-sdl/build/CMakeFiles/matrix-sdl.dir
+/home/iken/projects/matrix-sdl/build/CMakeFiles/edit_cache.dir
+/home/iken/projects/matrix-sdl/build/CMakeFiles/rebuild_cache.dir
+/home/iken/projects/matrix-sdl/build/CMakeFiles/list_install_components.dir
+/home/iken/projects/matrix-sdl/build/CMakeFiles/install.dir
+/home/iken/projects/matrix-sdl/build/CMakeFiles/install/local.dir
+/home/iken/projects/matrix-sdl/build/CMakeFiles/install/strip.dir
