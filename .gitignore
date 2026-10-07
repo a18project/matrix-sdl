@@ -1,0 +1,6 @@
+build/
+obj/
+matrix-sdl
+matrix-sdl.exe
+*.o
+.DS_Store

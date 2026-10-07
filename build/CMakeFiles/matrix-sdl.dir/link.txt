@@ -1,1 +1,0 @@
-/usr/bin/cc "CMakeFiles/matrix-sdl.dir/src/main.c.o" "CMakeFiles/matrix-sdl.dir/src/matrix.c.o" "CMakeFiles/matrix-sdl.dir/src/renderer.c.o" -o matrix-sdl  /usr/lib/x86_64-linux-gnu/libSDL2.so -lm 
