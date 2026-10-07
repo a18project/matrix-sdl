@@ -1,6 +1,8 @@
 build/
+build-aarch64/
 obj/
 matrix-sdl
 matrix-sdl.exe
 *.o
+*.zip
 .DS_Store

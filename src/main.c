@@ -116,9 +116,18 @@ int main(int argc, char *argv[]) {
     config_set_defaults(&cfg);
     parse_args(argc, argv, &cfg);
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER | SDL_INIT_JOYSTICK) != 0) {
         fprintf(stderr, "Failed to initialize SDL: %s\n", SDL_GetError());
         return 1;
+    }
+
+    /* Open connected gamepads / joysticks (for handheld consoles like Miyoo Flip) */
+    for (int i = 0; i < SDL_NumJoysticks(); ++i) {
+        if (SDL_IsGameController(i)) {
+            SDL_GameControllerOpen(i);
+        } else {
+            SDL_JoystickOpen(i);
+        }
     }
 
     Uint32 window_flags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI;
@@ -268,6 +277,92 @@ int main(int argc, char *argv[]) {
 
                         default:
                             break;
+                    }
+                    break;
+
+                case SDL_CONTROLLERDEVICEADDED:
+                    if (SDL_IsGameController(ev.cdevice.which)) {
+                        SDL_GameControllerOpen(ev.cdevice.which);
+                    }
+                    break;
+
+                case SDL_JOYDEVICEADDED:
+                    if (!SDL_IsGameController(ev.jdevice.which)) {
+                        SDL_JoystickOpen(ev.jdevice.which);
+                    }
+                    break;
+
+                case SDL_CONTROLLERBUTTONDOWN:
+                    switch (ev.cbutton.button) {
+                        case SDL_CONTROLLER_BUTTON_DPAD_UP:
+                            cfg.fall_speed += 0.15f;
+                            if (cfg.fall_speed > 5.0f) cfg.fall_speed = 5.0f;
+                            grid->fall_speed = cfg.fall_speed;
+                            break;
+                        case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+                            cfg.fall_speed -= 0.15f;
+                            if (cfg.fall_speed < 0.10f) cfg.fall_speed = 0.10f;
+                            grid->fall_speed = cfg.fall_speed;
+                            break;
+                        case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+                            cfg.raindrop_length -= 0.10f;
+                            if (cfg.raindrop_length < 0.30f) cfg.raindrop_length = 0.30f;
+                            grid->raindrop_length = cfg.raindrop_length;
+                            break;
+                        case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+                            cfg.raindrop_length += 0.10f;
+                            if (cfg.raindrop_length > 4.0f) cfg.raindrop_length = 4.0f;
+                            grid->raindrop_length = cfg.raindrop_length;
+                            break;
+                        case SDL_CONTROLLER_BUTTON_A:
+                            /* Toggle between Full Color and 1-Bit Playdate Mode */
+                            cfg.render_mode = (cfg.render_mode == RENDER_MODE_COLOR) ? RENDER_MODE_PLAYDATE : RENDER_MODE_COLOR;
+                            break;
+                        case SDL_CONTROLLER_BUTTON_B:
+                        case SDL_CONTROLLER_BUTTON_RIGHTSHOULDER:
+                            /* Next Palette */
+                            cfg.palette = (cfg.palette + 1) % PALETTE_COUNT;
+                            break;
+                        case SDL_CONTROLLER_BUTTON_LEFTSHOULDER:
+                            /* Previous Palette */
+                            cfg.palette = (cfg.palette + PALETTE_COUNT - 1) % PALETTE_COUNT;
+                            break;
+                        case SDL_CONTROLLER_BUTTON_X:
+                            cfg.glow_effect = !cfg.glow_effect;
+                            break;
+                        case SDL_CONTROLLER_BUTTON_Y:
+                            grid->bonus_glyphs = !grid->bonus_glyphs;
+                            break;
+                        case SDL_CONTROLLER_BUTTON_START:
+                            cfg.paused = !cfg.paused;
+                            break;
+                        case SDL_CONTROLLER_BUTTON_BACK:
+                        case SDL_CONTROLLER_BUTTON_GUIDE:
+                            running = false;
+                            break;
+                        default:
+                            break;
+                    }
+                    break;
+
+                case SDL_JOYHATMOTION:
+                    if (ev.jhat.value & SDL_HAT_UP) {
+                        cfg.fall_speed += 0.15f;
+                        if (cfg.fall_speed > 5.0f) cfg.fall_speed = 5.0f;
+                        grid->fall_speed = cfg.fall_speed;
+                    } else if (ev.jhat.value & SDL_HAT_DOWN) {
+                        cfg.fall_speed -= 0.15f;
+                        if (cfg.fall_speed < 0.10f) cfg.fall_speed = 0.10f;
+                        grid->fall_speed = cfg.fall_speed;
+                    }
+                    if (ev.jhat.value & SDL_HAT_LEFT) {
+                        cfg.raindrop_length -= 0.10f;
+                        if (cfg.raindrop_length < 0.30f) cfg.raindrop_length = 0.30f;
+                        grid->raindrop_length = cfg.raindrop_length;
+                    } else if (ev.jhat.value & SDL_HAT_RIGHT) {
+                        cfg.raindrop_length += 0.10f;
+                        if (cfg.raindrop_length > 4.0f) cfg.raindrop_length = 4.0f;
+                        grid->raindrop_length = cfg.raindrop_length;
                     }
                     break;
 
