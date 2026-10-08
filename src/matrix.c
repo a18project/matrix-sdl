@@ -15,9 +15,9 @@ static inline float wobble(float x) {
     return x + 0.3f * sinf(SQRT_2 * x) + 0.2f * sinf(SQRT_5 * x);
 }
 
-static inline float calculate_brightness(float sim_time, float col_offset, float col_speed, int y, float raindrop_len, float fall_speed) {
+static inline float calculate_brightness(float sim_time, float col_offset, float col_speed, int x, int y, float raindrop_len, float fall_speed, float slant) {
     float col_time = col_offset + sim_time * fall_speed * col_speed;
-    float rain_time = (col_time - (float)y * 0.05f) / raindrop_len;
+    float rain_time = (col_time - (float)y * 0.05f + (float)x * slant * 0.04f) / raindrop_len;
     float w = wobble(rain_time);
     float fract = w - floorf(w);
     return 1.0f - fract;
@@ -36,7 +36,8 @@ MatrixGrid *matrix_grid_create(int num_columns, int num_rows, const AppConfig *c
     grid->fall_speed = cfg->fall_speed;
     grid->glyph_cycle_speed = cfg->glyph_cycle_speed;
     grid->raindrop_length = cfg->raindrop_length;
-    grid->bonus_glyphs = false;
+    grid->slant = cfg->slant;
+    grid->bonus_glyphs = cfg->bonus_glyphs;
 
     grid->column_time_offsets = malloc(sizeof(float) * num_columns);
     grid->column_speed_offsets = malloc(sizeof(float) * num_columns);
@@ -161,18 +162,22 @@ void matrix_grid_update(MatrixGrid *grid, float delta_time) {
                 grid->sim_time,
                 cell->column_time_offset,
                 cell->column_speed_offset,
+                x,
                 y,
                 grid->raindrop_length,
-                grid->fall_speed
+                grid->fall_speed,
+                grid->slant
             );
 
             float b_below = calculate_brightness(
                 grid->sim_time,
                 cell->column_time_offset,
                 cell->column_speed_offset,
+                x,
                 y + 1,
                 grid->raindrop_length,
-                grid->fall_speed
+                grid->fall_speed,
+                grid->slant
             );
 
             cell->brightness = b;

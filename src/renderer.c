@@ -36,6 +36,13 @@ static void init_palettes(MatrixRenderer *r) {
         .mid    = {0, 220, 160},
         .low    = {0, 60, 45}
     };
+    r->palettes[PALETTE_OPERATOR] = (ColorPalette){
+        .name = "Operator (1999)",
+        .cursor = {255, 255, 255},
+        .high   = {160, 255, 180},
+        .mid    = {0, 255, 80},
+        .low    = {0, 90, 30}
+    };
     r->palettes[PALETTE_NIGHTMARE] = (ColorPalette){
         .name = "Nightmare (Reloaded)",
         .cursor = {255, 235, 235},
@@ -50,12 +57,40 @@ static void init_palettes(MatrixRenderer *r) {
         .mid    = {230, 155, 20},
         .low    = {70, 40, 5}
     };
+    r->palettes[PALETTE_PALIMPSEST] = (ColorPalette){
+        .name = "Palimpsest (Furious Angels)",
+        .cursor = {255, 245, 200},
+        .high   = {240, 210, 100},
+        .mid    = {0, 190, 180},
+        .low    = {10, 60, 70}
+    };
     r->palettes[PALETTE_TWILIGHT] = (ColorPalette){
         .name = "Twilight (Cyberpunk)",
         .cursor = {230, 245, 255},
-        .high   = {100, 210, 255},
-        .mid    = {0, 140, 255},
-        .low    = {10, 30, 75}
+        .high   = {240, 120, 255},
+        .mid    = {0, 160, 255},
+        .low    = {30, 10, 80}
+    };
+    r->palettes[PALETTE_MORPHEUS] = (ColorPalette){
+        .name = "Morpheus (Zion)",
+        .cursor = {255, 220, 240},
+        .high   = {230, 80, 160},
+        .mid    = {140, 20, 180},
+        .low    = {45, 5, 60}
+    };
+    r->palettes[PALETTE_TRINITY] = (ColorPalette){
+        .name = "Trinity (Awakened)",
+        .cursor = {255, 255, 220},
+        .high   = {180, 255, 150},
+        .mid    = {0, 200, 90},
+        .low    = {40, 60, 15}
+    };
+    r->palettes[PALETTE_BUGS] = (ColorPalette){
+        .name = "Bugs (Blue Pill)",
+        .cursor = {220, 250, 255},
+        .high   = {100, 220, 255},
+        .mid    = {0, 140, 240},
+        .low    = {0, 40, 90}
     };
     r->palettes[PALETTE_TERMINAL_WHITE] = (ColorPalette){
         .name = "Terminal (Monochrome)",
@@ -63,6 +98,13 @@ static void init_palettes(MatrixRenderer *r) {
         .high   = {220, 220, 220},
         .mid    = {150, 150, 150},
         .low    = {50, 50, 50}
+    };
+    r->palettes[PALETTE_AMBER_CRT] = (ColorPalette){
+        .name = "Vintage Amber CRT",
+        .cursor = {255, 240, 200},
+        .high   = {255, 190, 40},
+        .mid    = {210, 130, 0},
+        .low    = {70, 35, 0}
     };
 }
 
@@ -278,6 +320,48 @@ static inline unsigned char lerp_u8(unsigned char a, unsigned char b, float t) {
     return (unsigned char)((float)a + ((float)b - (float)a) * t);
 }
 
+static void get_stripe_color(MatrixEffect eff, int col, int num_cols, unsigned char *out_r, unsigned char *out_g, unsigned char *out_b) {
+    if (eff == EFFECT_PRIDE) {
+        static const unsigned char pride[6][3] = {
+            {227, 2, 2},     /* Red */
+            {255, 140, 0},   /* Orange */
+            {255, 237, 0},   /* Yellow */
+            {0, 128, 38},    /* Green */
+            {0, 77, 255},    /* Blue */
+            {117, 7, 135}    /* Purple */
+        };
+        int band = (num_cols > 0) ? (col * 6) / num_cols : 0;
+        if (band < 0) band = 0;
+        if (band > 5) band = 5;
+        *out_r = pride[band][0];
+        *out_g = pride[band][1];
+        *out_b = pride[band][2];
+    } else if (eff == EFFECT_TRANS_PRIDE) {
+        static const unsigned char trans[5][3] = {
+            {92, 206, 250},  /* Light Blue */
+            {245, 169, 184}, /* Pink */
+            {255, 255, 255}, /* White */
+            {245, 169, 184}, /* Pink */
+            {92, 206, 250}   /* Light Blue */
+        };
+        int band = (num_cols > 0) ? (col * 5) / num_cols : 0;
+        if (band < 0) band = 0;
+        if (band > 4) band = 4;
+        *out_r = trans[band][0];
+        *out_g = trans[band][1];
+        *out_b = trans[band][2];
+    } else if (eff == EFFECT_STRIPES) {
+        int s = (col / 3) % 2;
+        if (s == 0) {
+            *out_r = 0; *out_g = 240; *out_b = 255; /* Cyan */
+        } else {
+            *out_r = 255; *out_g = 0; *out_b = 200; /* Magenta */
+        }
+    } else {
+        *out_r = 0; *out_g = 255; *out_b = 65;
+    }
+}
+
 void matrix_renderer_render(MatrixRenderer *r, const MatrixGrid *grid, const AppConfig *cfg) {
     if (!r || !grid || !cfg) return;
 
@@ -319,7 +403,11 @@ void matrix_renderer_render(MatrixRenderer *r, const MatrixGrid *grid, const App
 
             if (cell->is_cursor) {
                 /* Cursor head: intense white/bright highlight */
-                SDL_SetTextureColorMod(r->glyph_atlas_color, pal->cursor.r, pal->cursor.g, pal->cursor.b);
+                unsigned char cr = (cfg->effect == EFFECT_PALETTE) ? pal->cursor.r : 255;
+                unsigned char cg = (cfg->effect == EFFECT_PALETTE) ? pal->cursor.g : 255;
+                unsigned char cb = (cfg->effect == EFFECT_PALETTE) ? pal->cursor.b : 255;
+
+                SDL_SetTextureColorMod(r->glyph_atlas_color, cr, cg, cb);
                 SDL_SetTextureAlphaMod(r->glyph_atlas_color, 255);
                 SDL_RenderCopy(r->sdl_renderer, r->glyph_atlas_color, &src_rect, &dst_rect);
 
@@ -337,7 +425,16 @@ void matrix_renderer_render(MatrixRenderer *r, const MatrixGrid *grid, const App
             } else {
                 /* Trail: smoothly interpolate colors */
                 unsigned char red, green, blue, alpha;
-                if (b > 0.65f) {
+
+                if (cfg->effect != EFFECT_PALETTE) {
+                    unsigned char sr, sg, sb;
+                    get_stripe_color(cfg->effect, cell->x, grid->num_columns, &sr, &sg, &sb);
+                    float factor = (b > 0.15f) ? b : 0.15f;
+                    red   = (unsigned char)((float)sr * factor);
+                    green = (unsigned char)((float)sg * factor);
+                    blue  = (unsigned char)((float)sb * factor);
+                    alpha = (unsigned char)(255.0f * (b > 0.05f ? b : 0.05f));
+                } else if (b > 0.65f) {
                     float t = (b - 0.65f) / 0.35f;
                     red   = lerp_u8(pal->mid.r, pal->high.r, t);
                     green = lerp_u8(pal->mid.g, pal->high.g, t);
@@ -397,6 +494,4 @@ void matrix_renderer_render(MatrixRenderer *r, const MatrixGrid *grid, const App
             SDL_RenderCopy(r->sdl_renderer, r->glyph_atlas_dither, &src_rect, &dst_rect);
         }
     }
-
-    SDL_RenderPresent(r->sdl_renderer);
 }

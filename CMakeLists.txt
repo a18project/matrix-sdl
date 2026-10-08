@@ -10,6 +10,8 @@ set(SOURCES
     src/main.c
     src/matrix.c
     src/renderer.c
+    src/config.c
+    src/gui.c
 )
 
 add_executable(matrix-sdl ${SOURCES})

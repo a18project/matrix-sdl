@@ -27,6 +27,7 @@ typedef struct {
     float raindrop_length;
     float fall_speed;
     float glyph_cycle_speed;
+    float slant;
     bool bonus_glyphs;
 } MatrixGrid;
 

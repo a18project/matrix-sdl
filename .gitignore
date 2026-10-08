@@ -5,4 +5,6 @@ matrix-sdl
 matrix-sdl.exe
 *.o
 *.zip
+dist/
+*.aarch64
 .DS_Store

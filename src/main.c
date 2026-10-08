@@ -6,24 +6,7 @@
 #include "config.h"
 #include "matrix.h"
 #include "renderer.h"
-
-void config_set_defaults(AppConfig *cfg) {
-    if (!cfg) return;
-    cfg->window_width = 1280;
-    cfg->window_height = 720;
-    cfg->fullscreen = false;
-    cfg->vsync = true;
-    cfg->fall_speed = 1.0f;
-    cfg->glyph_cycle_speed = 1.8f;
-    cfg->raindrop_length = 1.15f;
-    cfg->paused = false;
-    cfg->render_mode = RENDER_MODE_COLOR;
-    cfg->palette = PALETTE_CLASSIC;
-    cfg->glow_effect = true;
-    cfg->show_hud = false;
-    cfg->assets_path = NULL;
-    cfg->test_frames = 0;
-}
+#include "gui.h"
 
 static void print_help(const char *prog_name) {
     printf("Matrix Code Rain (SDL2 Multi-Platform Port)\n");
@@ -31,10 +14,17 @@ static void print_help(const char *prog_name) {
     printf("Usage:\n");
     printf("  %s [options]\n\n", prog_name);
     printf("Options:\n");
+    printf("  -v, --version <name>           Matrix version: classic, resurrections, operator,\n");
+    printf("                                 nightmare, paradise, palimpsest, twilight,\n");
+    printf("                                 morpheus, trinity, bugs, megacity, playdate\n");
+    printf("  -e, --effect <name>            Effect: palette, pride, trans, stripes\n");
     printf("  -m, --mode <color|playdate>    Rendering mode (default: color)\n");
-    printf("  -p, --palette <name>           Color palette: classic, resurrections, nightmare, paradise, twilight, terminal\n");
+    printf("  -p, --palette <name>           Color palette: classic, resurrections, operator,\n");
+    printf("                                 nightmare, paradise, palimpsest, twilight,\n");
+    printf("                                 morpheus, trinity, bugs, terminal, amber\n");
     printf("  -s, --speed <float>            Fall speed multiplier (default: 1.0)\n");
     printf("  -l, --length <float>           Raindrop tail length (default: 1.15)\n");
+    printf("  --slant <float>                Rain slant angle (-0.5 to 0.5)\n");
     printf("  -w, --width <pixels>           Initial window width (default: 1280)\n");
     printf("  -h, --height <pixels>          Initial window height (default: 720)\n");
     printf("  -f, --fullscreen               Start in fullscreen mode\n");
@@ -43,15 +33,16 @@ static void print_help(const char *prog_name) {
     printf("  --no-glow                      Disable glow halo around cursors\n");
     printf("  --help                         Show this help message\n\n");
     printf("Interactive Controls:\n");
-    printf("  [M]        Toggle Mode (Color / Playdate 1-Bit Dither)\n");
-    printf("  [P] / [C]  Cycle Color Palettes\n");
-    printf("  [Space]    Pause / Resume\n");
-    printf("  [Up/Down]  Increase / Decrease fall speed\n");
-    printf("  [ [ / ] ]  Decrease / Increase raindrop length\n");
-    printf("  [G]        Toggle Glow Effect\n");
-    printf("  [B]        Toggle Bonus Glyphs (Playdate characters)\n");
-    printf("  [F] / [F11]Toggle Fullscreen\n");
-    printf("  [Esc] / [Q]Quit\n\n");
+    printf("  [Tab] / [F2]  Toggle in-game Settings & Effects GUI Menu\n");
+    printf("  [M]           Toggle Mode (Color / Playdate 1-Bit Dither)\n");
+    printf("  [P] / [C]     Cycle Color Palettes\n");
+    printf("  [Space]       Pause / Resume\n");
+    printf("  [Up/Down]     Increase / Decrease fall speed\n");
+    printf("  [ [ / ] ]     Decrease / Increase raindrop length\n");
+    printf("  [G]           Toggle Glow Effect\n");
+    printf("  [B]           Toggle Bonus Glyphs (Playdate characters)\n");
+    printf("  [F] / [F11]   Toggle Fullscreen\n");
+    printf("  [Esc] / [Q]   Quit\n\n");
 }
 
 static void parse_args(int argc, char *argv[], AppConfig *cfg) {
@@ -61,6 +52,26 @@ static void parse_args(int argc, char *argv[], AppConfig *cfg) {
             exit(0);
         } else if (strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "--fullscreen") == 0) {
             cfg->fullscreen = true;
+        } else if ((strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--version") == 0) && i + 1 < argc) {
+            i++;
+            if (strcmp(argv[i], "resurrections") == 0) config_apply_version(cfg, VERSION_RESURRECTIONS);
+            else if (strcmp(argv[i], "operator") == 0 || strcmp(argv[i], "1999") == 0) config_apply_version(cfg, VERSION_OPERATOR);
+            else if (strcmp(argv[i], "nightmare") == 0) config_apply_version(cfg, VERSION_NIGHTMARE);
+            else if (strcmp(argv[i], "paradise") == 0) config_apply_version(cfg, VERSION_PARADISE);
+            else if (strcmp(argv[i], "palimpsest") == 0) config_apply_version(cfg, VERSION_PALIMPSEST);
+            else if (strcmp(argv[i], "twilight") == 0) config_apply_version(cfg, VERSION_TWILIGHT);
+            else if (strcmp(argv[i], "morpheus") == 0) config_apply_version(cfg, VERSION_MORPHEUS);
+            else if (strcmp(argv[i], "trinity") == 0) config_apply_version(cfg, VERSION_TRINITY);
+            else if (strcmp(argv[i], "bugs") == 0) config_apply_version(cfg, VERSION_BUGS);
+            else if (strcmp(argv[i], "megacity") == 0) config_apply_version(cfg, VERSION_MEGACITY);
+            else if (strcmp(argv[i], "playdate") == 0) config_apply_version(cfg, VERSION_PLAYDATE);
+            else config_apply_version(cfg, VERSION_CLASSIC);
+        } else if ((strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--effect") == 0) && i + 1 < argc) {
+            i++;
+            if (strcmp(argv[i], "pride") == 0) cfg->effect = EFFECT_PRIDE;
+            else if (strcmp(argv[i], "trans") == 0) cfg->effect = EFFECT_TRANS_PRIDE;
+            else if (strcmp(argv[i], "stripes") == 0) cfg->effect = EFFECT_STRIPES;
+            else cfg->effect = EFFECT_PALETTE;
         } else if ((strcmp(argv[i], "-m") == 0 || strcmp(argv[i], "--mode") == 0) && i + 1 < argc) {
             i++;
             if (strcmp(argv[i], "playdate") == 0 || strcmp(argv[i], "1bit") == 0) {
@@ -71,15 +82,23 @@ static void parse_args(int argc, char *argv[], AppConfig *cfg) {
         } else if ((strcmp(argv[i], "-p") == 0 || strcmp(argv[i], "--palette") == 0) && i + 1 < argc) {
             i++;
             if (strcmp(argv[i], "resurrections") == 0) cfg->palette = PALETTE_RESURRECTIONS;
+            else if (strcmp(argv[i], "operator") == 0)  cfg->palette = PALETTE_OPERATOR;
             else if (strcmp(argv[i], "nightmare") == 0) cfg->palette = PALETTE_NIGHTMARE;
             else if (strcmp(argv[i], "paradise") == 0)  cfg->palette = PALETTE_PARADISE;
+            else if (strcmp(argv[i], "palimpsest") == 0) cfg->palette = PALETTE_PALIMPSEST;
             else if (strcmp(argv[i], "twilight") == 0)  cfg->palette = PALETTE_TWILIGHT;
+            else if (strcmp(argv[i], "morpheus") == 0)  cfg->palette = PALETTE_MORPHEUS;
+            else if (strcmp(argv[i], "trinity") == 0)   cfg->palette = PALETTE_TRINITY;
+            else if (strcmp(argv[i], "bugs") == 0)      cfg->palette = PALETTE_BUGS;
             else if (strcmp(argv[i], "terminal") == 0)  cfg->palette = PALETTE_TERMINAL_WHITE;
+            else if (strcmp(argv[i], "amber") == 0)     cfg->palette = PALETTE_AMBER_CRT;
             else cfg->palette = PALETTE_CLASSIC;
         } else if ((strcmp(argv[i], "-s") == 0 || strcmp(argv[i], "--speed") == 0) && i + 1 < argc) {
             cfg->fall_speed = (float)atof(argv[++i]);
         } else if ((strcmp(argv[i], "-l") == 0 || strcmp(argv[i], "--length") == 0) && i + 1 < argc) {
             cfg->raindrop_length = (float)atof(argv[++i]);
+        } else if (strcmp(argv[i], "--slant") == 0 && i + 1 < argc) {
+            cfg->slant = (float)atof(argv[++i]);
         } else if ((strcmp(argv[i], "-w") == 0 || strcmp(argv[i], "--width") == 0) && i + 1 < argc) {
             cfg->window_width = atoi(argv[++i]);
         } else if ((strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--height") == 0) && i + 1 < argc) {
@@ -96,17 +115,14 @@ static void parse_args(int argc, char *argv[], AppConfig *cfg) {
 
 static void update_window_title(SDL_Window *win, const MatrixRenderer *r, const AppConfig *cfg, float fps) {
     char title[256];
-    const char *mode_str = (cfg->render_mode == RENDER_MODE_COLOR) ? "Color" : "Playdate 1-Bit";
+    const char *mode_str = (cfg->render_mode == RENDER_MODE_COLOR) ? "Color" : "1-Bit";
     const ColorPalette *pal = matrix_renderer_get_palette(r, cfg->palette);
     const char *pal_name = pal ? pal->name : "Custom";
+    const char *ver_name = config_version_name(cfg->version);
+    const char *eff_name = (cfg->effect != EFFECT_PALETTE) ? config_effect_name(cfg->effect) : pal_name;
 
-    if (cfg->render_mode == RENDER_MODE_COLOR) {
-        snprintf(title, sizeof(title), "Matrix Rain [SDL2] | %s | Palette: %s | Speed: %.1fx | FPS: %.0f%s",
-                 mode_str, pal_name, cfg->fall_speed, fps, cfg->paused ? " (PAUSED)" : "");
-    } else {
-        snprintf(title, sizeof(title), "Matrix Rain [SDL2] | %s Dither | Speed: %.1fx | FPS: %.0f%s",
-                 mode_str, cfg->fall_speed, fps, cfg->paused ? " (PAUSED)" : "");
-    }
+    snprintf(title, sizeof(title), "Matrix Rain [SDL2] | %s | %s | %s | %.1fx | FPS: %.0f%s",
+             ver_name, eff_name, mode_str, cfg->fall_speed, fps, cfg->paused ? " (PAUSED)" : "");
 
     SDL_SetWindowTitle(win, title);
 }
@@ -200,11 +216,17 @@ int main(int argc, char *argv[]) {
     int frame_count = 0;
     float current_fps = 60.0f;
 
+    gui_init();
+
     bool running = true;
     SDL_Event ev;
 
     while (running) {
         while (SDL_PollEvent(&ev)) {
+            if (gui_handle_event(&ev, &cfg, grid, window)) {
+                continue;
+            }
+
             switch (ev.type) {
                 case SDL_QUIT:
                     running = false;
@@ -408,6 +430,8 @@ int main(int argc, char *argv[]) {
 
         /* Render frame */
         matrix_renderer_render(renderer, grid, &cfg);
+        gui_render(sdl_renderer, &cfg, grid);
+        SDL_RenderPresent(sdl_renderer);
 
         if (cfg.test_frames > 0) {
             cfg.test_frames--;
