@@ -14,6 +14,7 @@ void config_set_defaults(AppConfig *cfg) {
     cfg->volumetric = false;
     cfg->forward_speed = 0.25f;
     cfg->paused = false;
+    cfg->should_quit = false;
     cfg->render_mode = RENDER_MODE_COLOR;
     cfg->version = VERSION_CLASSIC;
     cfg->effect = EFFECT_PALETTE;

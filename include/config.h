@@ -87,6 +87,7 @@ typedef struct {
     bool volumetric;        /* 3D volumetric rain with depth & perspective */
     float forward_speed;    /* Speed at which 3D rain approaches camera */
     bool paused;
+    bool should_quit;       /* Request clean shutdown/exit from GUI or combo */
     RenderMode render_mode;
     MatrixVersion version;
     MatrixEffect effect;

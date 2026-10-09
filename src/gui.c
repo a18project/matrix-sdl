@@ -99,6 +99,9 @@ static void sync_grid_with_config(MatrixGrid *grid, const AppConfig *cfg) {
     grid->bonus_glyphs = cfg->bonus_glyphs;
 }
 
+static bool btn_select_down = false;
+static bool btn_start_down = false;
+
 bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL_Window *window) {
     if (!cfg || !grid) return false;
 
@@ -113,6 +116,15 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
             return true;
         }
     } else if (ev->type == SDL_CONTROLLERBUTTONDOWN) {
+        if (ev->cbutton.button == SDL_CONTROLLER_BUTTON_BACK) btn_select_down = true;
+        if (ev->cbutton.button == SDL_CONTROLLER_BUTTON_START) btn_start_down = true;
+
+        /* Universal handheld exit combo: SELECT + START */
+        if (btn_select_down && btn_start_down) {
+            cfg->should_quit = true;
+            return true;
+        }
+
         if (ev->cbutton.button == SDL_CONTROLLER_BUTTON_BACK || ev->cbutton.button == SDL_CONTROLLER_BUTTON_GUIDE) {
             gui_toggle(cfg);
             return true;
@@ -121,6 +133,30 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
             gui_close(cfg);
             return true;
         }
+    } else if (ev->type == SDL_CONTROLLERBUTTONUP) {
+        if (ev->cbutton.button == SDL_CONTROLLER_BUTTON_BACK) btn_select_down = false;
+        if (ev->cbutton.button == SDL_CONTROLLER_BUTTON_START) btn_start_down = false;
+    } else if (ev->type == SDL_JOYBUTTONDOWN) {
+        /* Raw joystick fallback for handhelds without GameController mapping */
+        if (ev->jbutton.button == 8) btn_select_down = true;
+        if (ev->jbutton.button == 9) btn_start_down = true;
+
+        if (btn_select_down && btn_start_down) {
+            cfg->should_quit = true;
+            return true;
+        }
+
+        if (ev->jbutton.button == 8 || ev->jbutton.button == 10 || ev->jbutton.button == 11) {
+            gui_toggle(cfg);
+            return true;
+        }
+        if (cfg->settings_gui_open && ev->jbutton.button == 1) {
+            gui_close(cfg);
+            return true;
+        }
+    } else if (ev->type == SDL_JOYBUTTONUP) {
+        if (ev->jbutton.button == 8) btn_select_down = false;
+        if (ev->jbutton.button == 9) btn_start_down = false;
     }
 
     if (!cfg->settings_gui_open) {
@@ -212,9 +248,9 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
         } else if (current_tab == 2) {
             /* TAB 2: TUNING */
             if (k == SDLK_UP) {
-                selected_item = (selected_item + 7) % 8;
+                selected_item = (selected_item + 8) % 9;
             } else if (k == SDLK_DOWN) {
-                selected_item = (selected_item + 1) % 8;
+                selected_item = (selected_item + 1) % 9;
             } else if (k == SDLK_LEFT || k == SDLK_RIGHT) {
                 float dir = (k == SDLK_LEFT) ? -1.0f : 1.0f;
                 switch (selected_item) {
@@ -258,6 +294,8 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
                 } else if (selected_item == 7) {
                     config_set_defaults(cfg);
                     sync_grid_with_config(grid, cfg);
+                } else if (selected_item == 8) {
+                    cfg->should_quit = true;
                 }
             }
             return true;
@@ -314,8 +352,8 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
             }
             return true;
         } else if (current_tab == 2) {
-            if (btn == SDL_CONTROLLER_BUTTON_DPAD_UP) selected_item = (selected_item + 7) % 8;
-            else if (btn == SDL_CONTROLLER_BUTTON_DPAD_DOWN) selected_item = (selected_item + 1) % 8;
+            if (btn == SDL_CONTROLLER_BUTTON_DPAD_UP) selected_item = (selected_item + 8) % 9;
+            else if (btn == SDL_CONTROLLER_BUTTON_DPAD_DOWN) selected_item = (selected_item + 1) % 9;
             else if (btn == SDL_CONTROLLER_BUTTON_DPAD_LEFT || btn == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
                 float dir = (btn == SDL_CONTROLLER_BUTTON_DPAD_LEFT) ? -1.0f : 1.0f;
                 switch (selected_item) {
@@ -356,6 +394,8 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
                 } else if (selected_item == 7) {
                     config_set_defaults(cfg);
                     sync_grid_with_config(grid, cfg);
+                } else if (selected_item == 8) {
+                    cfg->should_quit = true;
                 }
             }
             return true;
@@ -433,9 +473,9 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
             }
         } else if (current_tab == 2) {
             /* Tuning clicks */
-            int item_h = 32;
-            for (int i = 0; i < 8; i++) {
-                int item_y = content_y + 10 + i * item_h;
+            int item_h = 30;
+            for (int i = 0; i < 9; i++) {
+                int item_y = content_y + 8 + i * item_h;
                 if (is_point_in_rect(ev->button.x, ev->button.y, panel_x + 20, item_y, panel_w - 40, item_h - 4)) {
                     selected_item = i;
                     switch (i) {
@@ -469,6 +509,9 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
                         case 7:
                             config_set_defaults(cfg);
                             sync_grid_with_config(grid, cfg);
+                            break;
+                        case 8:
+                            cfg->should_quit = true;
                             break;
                     }
                     return true;
@@ -678,17 +721,17 @@ void gui_render(SDL_Renderer *renderer, const AppConfig *cfg, const MatrixGrid *
         /* TAB 2: TUNING */
         draw_text(renderer, panel_x + 20, content_y - 8, "Adjust physical rain parameters and window settings:", c_gray, 1);
 
-        int item_h = 32;
-        for (int i = 0; i < 8; i++) {
-            int item_y = content_y + 8 + i * item_h;
+        int item_h = 30;
+        for (int i = 0; i < 9; i++) {
+            int item_y = content_y + 6 + i * item_h;
             bool is_sel = (i == selected_item);
 
             if (is_sel) {
-                fill_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 5, c_bg_selected);
-                draw_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 5, c_green_bright);
+                fill_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 4, (i == 8) ? (SDL_Color){140, 20, 20, 255} : c_bg_selected);
+                draw_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 4, (i == 8) ? (SDL_Color){255, 60, 60, 255} : c_green_bright);
             } else {
-                fill_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 5, c_bg_item);
-                draw_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 5, c_green_dim);
+                fill_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 4, c_bg_item);
+                draw_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 4, (i == 8) ? (SDL_Color){140, 30, 30, 255} : c_green_dim);
             }
 
             char label[64];
@@ -726,10 +769,16 @@ void gui_render(SDL_Renderer *renderer, const AppConfig *cfg, const MatrixGrid *
                     snprintf(label, sizeof(label), "Reset Configuration");
                     snprintf(value, sizeof(value), "[ RESTORE DEFAULTS ]");
                     break;
+                case 8:
+                    snprintf(label, sizeof(label), "Exit Application");
+                    snprintf(value, sizeof(value), "[ QUIT TO SYSTEM ]");
+                    break;
             }
 
-            draw_text(renderer, panel_x + 32, item_y + 8, label, is_sel ? c_white : c_green_bright, 1);
-            draw_text(renderer, panel_x + panel_w - 240, item_y + 8, value, is_sel ? c_gold : c_cyan, 1);
+            SDL_Color lbl_color = is_sel ? c_white : ((i == 8) ? (SDL_Color){255, 130, 130, 255} : c_green_bright);
+            SDL_Color val_color = is_sel ? ((i == 8) ? (SDL_Color){255, 220, 220, 255} : c_gold) : ((i == 8) ? (SDL_Color){255, 70, 70, 255} : c_cyan);
+            draw_text(renderer, panel_x + 32, item_y + 8, label, lbl_color, 1);
+            draw_text(renderer, panel_x + panel_w - 240, item_y + 8, value, val_color, 1);
         }
 
     } else if (current_tab == 3) {
@@ -740,27 +789,21 @@ void gui_render(SDL_Renderer *renderer, const AppConfig *cfg, const MatrixGrid *
         draw_text(renderer, panel_x + 24, ty, "Based on Rezmason's digital rain simulator:", c_gray, 1);
         ty += 14;
         draw_text(renderer, panel_x + 24, ty, "https://github.com/a18project/matrix", c_cyan, 1);
-        ty += 22;
+        ty += 20;
 
-        draw_text(renderer, panel_x + 24, ty, "CONTROLS GUIDE:", c_white, 1);
-        ty += 16;
-        draw_text(renderer, panel_x + 32, ty, "Desktop Keyboard & Mouse:", c_green_bright, 1);
-        ty += 14;
-        draw_text(renderer, panel_x + 40, ty, "- TAB / F2 / Esc : Toggle or close this Settings Menu", c_gray, 1);
-        ty += 12;
-        draw_text(renderer, panel_x + 40, ty, "- 3 / V          : Quick toggle 3D Volumetric flythrough", c_gray, 1);
-        ty += 12;
-        draw_text(renderer, panel_x + 40, ty, "- Arrows / Mouse: Navigate options, click to select", c_gray, 1);
-        ty += 12;
-        draw_text(renderer, panel_x + 40, ty, "- M : Toggle Full-Color vs Playdate 1-Bit mode", c_gray, 1);
-        ty += 12;
-        draw_text(renderer, panel_x + 40, ty, "- P / C : Quick cycle palettes", c_gray, 1);
-        ty += 12;
-        draw_text(renderer, panel_x + 40, ty, "- Space : Pause / Resume   |   F11 : Fullscreen", c_gray, 1);
+        draw_text(renderer, panel_x + 24, ty, "HOW TO EXIT / QUIT ON MIYOO FLIP:", (SDL_Color){255, 215, 0, 255}, 1);
+        ty += 15;
+        draw_text(renderer, panel_x + 32, ty, "> Press SELECT + START together (instant quit anytime)", c_white, 1);
+        ty += 13;
+        draw_text(renderer, panel_x + 32, ty, "> Or in this Menu: Tab 3 (TUNING) -> [ QUIT TO SYSTEM ]", c_white, 1);
+        ty += 13;
+        draw_text(renderer, panel_x + 32, ty, "> On Keyboard: Press ESC or Q", c_gray, 1);
         ty += 18;
 
+        draw_text(renderer, panel_x + 24, ty, "CONTROLS GUIDE:", c_white, 1);
+        ty += 15;
         draw_text(renderer, panel_x + 32, ty, "Handheld Gamepad (Miyoo Flip):", c_green_bright, 1);
-        ty += 14;
+        ty += 13;
         draw_text(renderer, panel_x + 40, ty, "- SELECT / MENU  : Toggle this Settings Menu", c_gray, 1);
         ty += 12;
         draw_text(renderer, panel_x + 40, ty, "- D-PAD / L1 / R1: Navigate tabs and adjust values", c_gray, 1);
@@ -768,6 +811,17 @@ void gui_render(SDL_Renderer *renderer, const AppConfig *cfg, const MatrixGrid *
         draw_text(renderer, panel_x + 40, ty, "- BUTTON A / B   : Select option / Go back / Close", c_gray, 1);
         ty += 12;
         draw_text(renderer, panel_x + 40, ty, "- BUTTON START   : Pause or resume simulation", c_gray, 1);
+        ty += 16;
+
+        draw_text(renderer, panel_x + 32, ty, "Desktop Keyboard & Mouse:", c_green_bright, 1);
+        ty += 13;
+        draw_text(renderer, panel_x + 40, ty, "- TAB / F2 / Esc : Toggle or close this Settings Menu", c_gray, 1);
+        ty += 12;
+        draw_text(renderer, panel_x + 40, ty, "- 3 / V          : Quick toggle 3D Volumetric flythrough", c_gray, 1);
+        ty += 12;
+        draw_text(renderer, panel_x + 40, ty, "- Arrows / Mouse: Navigate options, click to select", c_gray, 1);
+        ty += 12;
+        draw_text(renderer, panel_x + 40, ty, "- M : Mode toggle   |   P / C : Cycle palettes", c_gray, 1);
     }
 
     /* Bottom helper bar */

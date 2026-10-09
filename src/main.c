@@ -228,10 +228,21 @@ int main(int argc, char *argv[]) {
 
     bool running = true;
     SDL_Event ev;
+    static bool joy_select_down = false;
+    static bool joy_start_down = false;
 
     while (running) {
+        if (cfg.should_quit) {
+            running = false;
+            break;
+        }
+
         while (SDL_PollEvent(&ev)) {
             if (gui_handle_event(&ev, &cfg, grid, window)) {
+                if (cfg.should_quit) {
+                    running = false;
+                    break;
+                }
                 continue;
             }
 
@@ -330,6 +341,15 @@ int main(int argc, char *argv[]) {
                     break;
 
                 case SDL_CONTROLLERBUTTONDOWN:
+                    if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK) joy_select_down = true;
+                    if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_START) joy_start_down = true;
+
+                    /* Universal handheld exit combo: SELECT + START */
+                    if (joy_select_down && joy_start_down) {
+                        running = false;
+                        break;
+                    }
+
                     switch (ev.cbutton.button) {
                         case SDL_CONTROLLER_BUTTON_DPAD_UP:
                             cfg.fall_speed += 0.15f;
@@ -380,6 +400,28 @@ int main(int argc, char *argv[]) {
                         default:
                             break;
                     }
+                    break;
+
+                case SDL_CONTROLLERBUTTONUP:
+                    if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_BACK) joy_select_down = false;
+                    if (ev.cbutton.button == SDL_CONTROLLER_BUTTON_START) joy_start_down = false;
+                    break;
+
+                case SDL_JOYBUTTONDOWN:
+                    if (ev.jbutton.button == 8) joy_select_down = true;
+                    if (ev.jbutton.button == 9) joy_start_down = true;
+                    if (joy_select_down && joy_start_down) {
+                        running = false;
+                        break;
+                    }
+                    if (ev.jbutton.button == 8 || ev.jbutton.button == 10 || ev.jbutton.button == 11) {
+                        gui_toggle(&cfg);
+                    }
+                    break;
+
+                case SDL_JOYBUTTONUP:
+                    if (ev.jbutton.button == 8) joy_select_down = false;
+                    if (ev.jbutton.button == 9) joy_start_down = false;
                     break;
 
                 case SDL_JOYHATMOTION:
