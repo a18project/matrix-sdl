@@ -37,13 +37,20 @@ MatrixGrid *matrix_grid_create(int num_columns, int num_rows, const AppConfig *c
     grid->glyph_cycle_speed = cfg->glyph_cycle_speed;
     grid->raindrop_length = cfg->raindrop_length;
     grid->slant = cfg->slant;
+    grid->forward_speed = cfg->forward_speed;
+    grid->volumetric = cfg->volumetric;
     grid->bonus_glyphs = cfg->bonus_glyphs;
 
     grid->column_time_offsets = malloc(sizeof(float) * num_columns);
     grid->column_speed_offsets = malloc(sizeof(float) * num_columns);
+    grid->column_depths = malloc(sizeof(float) * num_columns);
+    grid->column_x_norm = malloc(sizeof(float) * num_columns);
+    grid->column_y_offset = malloc(sizeof(float) * num_columns);
     grid->cells = malloc(sizeof(MatrixCell) * grid->num_cells);
 
-    if (!grid->column_time_offsets || !grid->column_speed_offsets || !grid->cells) {
+    if (!grid->column_time_offsets || !grid->column_speed_offsets ||
+        !grid->column_depths || !grid->column_x_norm || !grid->column_y_offset ||
+        !grid->cells) {
         matrix_grid_destroy(grid);
         return NULL;
     }
@@ -54,6 +61,10 @@ MatrixGrid *matrix_grid_create(int num_columns, int num_rows, const AppConfig *c
     for (int x = 0; x < num_columns; x++) {
         grid->column_time_offsets[x] = randf() * 1000.0f;
         grid->column_speed_offsets[x] = randf() * 0.6f + 0.7f;
+        grid->column_depths[x] = randf();
+        float t = (num_columns > 1) ? ((float)x / (float)(num_columns - 1)) : 0.5f;
+        grid->column_x_norm[x] = t * 2.4f - 1.2f + (randf() - 0.5f) * 0.05f;
+        grid->column_y_offset[x] = (randf() - 0.5f) * 0.35f;
     }
 
     int idx = 0;
@@ -79,6 +90,9 @@ void matrix_grid_destroy(MatrixGrid *grid) {
     if (!grid) return;
     free(grid->column_time_offsets);
     free(grid->column_speed_offsets);
+    free(grid->column_depths);
+    free(grid->column_x_norm);
+    free(grid->column_y_offset);
     free(grid->cells);
     free(grid);
 }
@@ -89,12 +103,19 @@ void matrix_grid_resize(MatrixGrid *grid, int new_columns, int new_rows) {
 
     float *new_time_offsets = malloc(sizeof(float) * new_columns);
     float *new_speed_offsets = malloc(sizeof(float) * new_columns);
+    float *new_depths = malloc(sizeof(float) * new_columns);
+    float *new_x_norm = malloc(sizeof(float) * new_columns);
+    float *new_y_offset = malloc(sizeof(float) * new_columns);
     int new_cells_count = new_columns * new_rows;
     MatrixCell *new_cells = malloc(sizeof(MatrixCell) * new_cells_count);
 
-    if (!new_time_offsets || !new_speed_offsets || !new_cells) {
+    if (!new_time_offsets || !new_speed_offsets || !new_depths ||
+        !new_x_norm || !new_y_offset || !new_cells) {
         free(new_time_offsets);
         free(new_speed_offsets);
+        free(new_depths);
+        free(new_x_norm);
+        free(new_y_offset);
         free(new_cells);
         return;
     }
@@ -103,9 +124,16 @@ void matrix_grid_resize(MatrixGrid *grid, int new_columns, int new_rows) {
         if (x < grid->num_columns) {
             new_time_offsets[x] = grid->column_time_offsets[x];
             new_speed_offsets[x] = grid->column_speed_offsets[x];
+            new_depths[x] = grid->column_depths[x];
+            new_x_norm[x] = grid->column_x_norm[x];
+            new_y_offset[x] = grid->column_y_offset[x];
         } else {
             new_time_offsets[x] = randf() * 1000.0f;
             new_speed_offsets[x] = randf() * 0.6f + 0.7f;
+            new_depths[x] = randf();
+            float t = (new_columns > 1) ? ((float)x / (float)(new_columns - 1)) : 0.5f;
+            new_x_norm[x] = t * 2.4f - 1.2f + (randf() - 0.5f) * 0.05f;
+            new_y_offset[x] = (randf() - 0.5f) * 0.35f;
         }
     }
 
@@ -138,6 +166,9 @@ void matrix_grid_resize(MatrixGrid *grid, int new_columns, int new_rows) {
 
     free(grid->column_time_offsets);
     free(grid->column_speed_offsets);
+    free(grid->column_depths);
+    free(grid->column_x_norm);
+    free(grid->column_y_offset);
     free(grid->cells);
 
     grid->num_columns = new_columns;
@@ -145,6 +176,9 @@ void matrix_grid_resize(MatrixGrid *grid, int new_columns, int new_rows) {
     grid->num_cells = new_cells_count;
     grid->column_time_offsets = new_time_offsets;
     grid->column_speed_offsets = new_speed_offsets;
+    grid->column_depths = new_depths;
+    grid->column_x_norm = new_x_norm;
+    grid->column_y_offset = new_y_offset;
     grid->cells = new_cells;
 }
 
@@ -152,6 +186,18 @@ void matrix_grid_update(MatrixGrid *grid, float delta_time) {
     if (!grid) return;
 
     grid->sim_time += delta_time;
+
+    if (grid->volumetric) {
+        for (int x = 0; x < grid->num_columns; x++) {
+            grid->column_depths[x] += delta_time * grid->forward_speed;
+            if (grid->column_depths[x] >= 1.0f) {
+                grid->column_depths[x] = fmodf(grid->column_depths[x], 1.0f);
+                grid->column_x_norm[x] = randf() * 2.4f - 1.2f;
+                grid->column_y_offset[x] = (randf() - 0.5f) * 0.35f;
+                grid->column_time_offsets[x] = randf() * 1000.0f;
+            }
+        }
+    }
 
     for (int y = 0; y < grid->num_rows; y++) {
         for (int x = 0; x < grid->num_columns; x++) {

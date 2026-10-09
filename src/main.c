@@ -16,7 +16,7 @@ static void print_help(const char *prog_name) {
     printf("Options:\n");
     printf("  -v, --version <name>           Matrix version: classic, resurrections, operator,\n");
     printf("                                 nightmare, paradise, palimpsest, twilight,\n");
-    printf("                                 morpheus, trinity, bugs, megacity, playdate\n");
+    printf("                                 morpheus, trinity, bugs, megacity, playdate, 3d\n");
     printf("  -e, --effect <name>            Effect: palette, pride, trans, stripes\n");
     printf("  -m, --mode <color|playdate>    Rendering mode (default: color)\n");
     printf("  -p, --palette <name>           Color palette: classic, resurrections, operator,\n");
@@ -25,6 +25,8 @@ static void print_help(const char *prog_name) {
     printf("  -s, --speed <float>            Fall speed multiplier (default: 1.0)\n");
     printf("  -l, --length <float>           Raindrop tail length (default: 1.15)\n");
     printf("  --slant <float>                Rain slant angle (-0.5 to 0.5)\n");
+    printf("  -3, --3d, --volumetric         Volumetric 3D flythrough perspective\n");
+    printf("  --forward-speed <float>        3D camera approach speed (default: 0.25)\n");
     printf("  -w, --width <pixels>           Initial window width (default: 1280)\n");
     printf("  -h, --height <pixels>          Initial window height (default: 720)\n");
     printf("  -f, --fullscreen               Start in fullscreen mode\n");
@@ -34,6 +36,7 @@ static void print_help(const char *prog_name) {
     printf("  --help                         Show this help message\n\n");
     printf("Interactive Controls:\n");
     printf("  [Tab] / [F2]  Toggle in-game Settings & Effects GUI Menu\n");
+    printf("  [3] / [V]     Toggle 3D Volumetric Flythrough Mode\n");
     printf("  [M]           Toggle Mode (Color / Playdate 1-Bit Dither)\n");
     printf("  [P] / [C]     Cycle Color Palettes\n");
     printf("  [Space]       Pause / Resume\n");
@@ -65,6 +68,7 @@ static void parse_args(int argc, char *argv[], AppConfig *cfg) {
             else if (strcmp(argv[i], "bugs") == 0) config_apply_version(cfg, VERSION_BUGS);
             else if (strcmp(argv[i], "megacity") == 0) config_apply_version(cfg, VERSION_MEGACITY);
             else if (strcmp(argv[i], "playdate") == 0) config_apply_version(cfg, VERSION_PLAYDATE);
+            else if (strcmp(argv[i], "3d") == 0 || strcmp(argv[i], "volumetric") == 0) config_apply_version(cfg, VERSION_3D);
             else config_apply_version(cfg, VERSION_CLASSIC);
         } else if ((strcmp(argv[i], "-e") == 0 || strcmp(argv[i], "--effect") == 0) && i + 1 < argc) {
             i++;
@@ -99,6 +103,10 @@ static void parse_args(int argc, char *argv[], AppConfig *cfg) {
             cfg->raindrop_length = (float)atof(argv[++i]);
         } else if (strcmp(argv[i], "--slant") == 0 && i + 1 < argc) {
             cfg->slant = (float)atof(argv[++i]);
+        } else if (strcmp(argv[i], "-3") == 0 || strcmp(argv[i], "--3d") == 0 || strcmp(argv[i], "--volumetric") == 0) {
+            cfg->volumetric = true;
+        } else if (strcmp(argv[i], "--forward-speed") == 0 && i + 1 < argc) {
+            cfg->forward_speed = (float)atof(argv[++i]);
         } else if ((strcmp(argv[i], "-w") == 0 || strcmp(argv[i], "--width") == 0) && i + 1 < argc) {
             cfg->window_width = atoi(argv[++i]);
         } else if ((strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--height") == 0) && i + 1 < argc) {
@@ -121,8 +129,8 @@ static void update_window_title(SDL_Window *win, const MatrixRenderer *r, const 
     const char *ver_name = config_version_name(cfg->version);
     const char *eff_name = (cfg->effect != EFFECT_PALETTE) ? config_effect_name(cfg->effect) : pal_name;
 
-    snprintf(title, sizeof(title), "Matrix Rain [SDL2] | %s | %s | %s | %.1fx | FPS: %.0f%s",
-             ver_name, eff_name, mode_str, cfg->fall_speed, fps, cfg->paused ? " (PAUSED)" : "");
+    snprintf(title, sizeof(title), "Matrix Rain [SDL2%s] | %s | %s | %s | %.1fx | FPS: %.0f%s",
+             cfg->volumetric ? " 3D" : "", ver_name, eff_name, mode_str, cfg->fall_speed, fps, cfg->paused ? " (PAUSED)" : "");
 
     SDL_SetWindowTitle(win, title);
 }
@@ -246,6 +254,13 @@ int main(int argc, char *argv[]) {
                         case SDLK_m:
                             /* Toggle between Full Color and 1-Bit Playdate Mode */
                             cfg.render_mode = (cfg.render_mode == RENDER_MODE_COLOR) ? RENDER_MODE_PLAYDATE : RENDER_MODE_COLOR;
+                            break;
+
+                        case SDLK_3:
+                        case SDLK_v:
+                            /* Toggle 3D Volumetric Mode */
+                            cfg.volumetric = !cfg.volumetric;
+                            grid->volumetric = cfg.volumetric;
                             break;
 
                         case SDLK_p:

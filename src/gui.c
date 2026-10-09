@@ -94,6 +94,8 @@ static void sync_grid_with_config(MatrixGrid *grid, const AppConfig *cfg) {
     grid->raindrop_length = cfg->raindrop_length;
     grid->glyph_cycle_speed = cfg->glyph_cycle_speed;
     grid->slant = cfg->slant;
+    grid->forward_speed = cfg->forward_speed;
+    grid->volumetric = cfg->volumetric;
     grid->bonus_glyphs = cfg->bonus_glyphs;
 }
 
@@ -166,10 +168,10 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
                 selected_item = (selected_item + VERSION_COUNT - 1) % VERSION_COUNT;
             } else if (k == SDLK_DOWN) {
                 selected_item = (selected_item + 1) % VERSION_COUNT;
-            } else if (k == SDLK_LEFT && selected_item >= 6) {
-                selected_item -= 6;
-            } else if (k == SDLK_RIGHT && selected_item < 6) {
-                selected_item += 6;
+            } else if (k == SDLK_LEFT && selected_item >= 7) {
+                selected_item -= 7;
+            } else if (k == SDLK_RIGHT && selected_item < 7) {
+                selected_item = (selected_item + 7 < VERSION_COUNT) ? (selected_item + 7) : (VERSION_COUNT - 1);
             } else if (k == SDLK_RETURN || k == SDLK_SPACE) {
                 config_apply_version(cfg, (MatrixVersion)selected_item);
                 sync_grid_with_config(grid, cfg);
@@ -178,9 +180,9 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
         } else if (current_tab == 1) {
             /* TAB 1: EFFECTS */
             if (k == SDLK_UP) {
-                selected_item = (selected_item + 4) % 5;
+                selected_item = (selected_item + 5) % 6;
             } else if (k == SDLK_DOWN) {
-                selected_item = (selected_item + 1) % 5;
+                selected_item = (selected_item + 1) % 6;
             } else if (k == SDLK_LEFT || k == SDLK_RIGHT || k == SDLK_RETURN || k == SDLK_SPACE) {
                 int delta = (k == SDLK_LEFT) ? -1 : 1;
                 switch (selected_item) {
@@ -200,15 +202,19 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
                     case 4:
                         cfg->render_mode = (cfg->render_mode == RENDER_MODE_COLOR) ? RENDER_MODE_PLAYDATE : RENDER_MODE_COLOR;
                         break;
+                    case 5:
+                        cfg->volumetric = !cfg->volumetric;
+                        grid->volumetric = cfg->volumetric;
+                        break;
                 }
             }
             return true;
         } else if (current_tab == 2) {
             /* TAB 2: TUNING */
             if (k == SDLK_UP) {
-                selected_item = (selected_item + 6) % 7;
+                selected_item = (selected_item + 7) % 8;
             } else if (k == SDLK_DOWN) {
-                selected_item = (selected_item + 1) % 7;
+                selected_item = (selected_item + 1) % 8;
             } else if (k == SDLK_LEFT || k == SDLK_RIGHT) {
                 float dir = (k == SDLK_LEFT) ? -1.0f : 1.0f;
                 switch (selected_item) {
@@ -231,6 +237,12 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
                         grid->glyph_cycle_speed = cfg->glyph_cycle_speed;
                         break;
                     case 3:
+                        cfg->forward_speed += dir * 0.05f;
+                        if (cfg->forward_speed < 0.05f) cfg->forward_speed = 0.05f;
+                        if (cfg->forward_speed > 2.00f) cfg->forward_speed = 2.00f;
+                        grid->forward_speed = cfg->forward_speed;
+                        break;
+                    case 4:
                         if (cfg->slant == 0.0f) cfg->slant = (dir > 0) ? 0.35f : -0.25f;
                         else if (cfg->slant > 0.0f) cfg->slant = (dir > 0) ? -0.25f : 0.0f;
                         else cfg->slant = (dir > 0) ? 0.0f : 0.35f;
@@ -238,12 +250,12 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
                         break;
                 }
             } else if (k == SDLK_RETURN || k == SDLK_SPACE) {
-                if (selected_item == 4) {
+                if (selected_item == 5) {
                     cfg->paused = !cfg->paused;
-                } else if (selected_item == 5) {
+                } else if (selected_item == 6) {
                     cfg->fullscreen = !cfg->fullscreen;
                     SDL_SetWindowFullscreen(window, cfg->fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-                } else if (selected_item == 6) {
+                } else if (selected_item == 7) {
                     config_set_defaults(cfg);
                     sync_grid_with_config(grid, cfg);
                 }
@@ -277,18 +289,18 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
                 selected_item = (selected_item + VERSION_COUNT - 1) % VERSION_COUNT;
             } else if (btn == SDL_CONTROLLER_BUTTON_DPAD_DOWN) {
                 selected_item = (selected_item + 1) % VERSION_COUNT;
-            } else if (btn == SDL_CONTROLLER_BUTTON_DPAD_LEFT && selected_item >= 6) {
-                selected_item -= 6;
-            } else if (btn == SDL_CONTROLLER_BUTTON_DPAD_RIGHT && selected_item < 6) {
-                selected_item += 6;
+            } else if (btn == SDL_CONTROLLER_BUTTON_DPAD_LEFT && selected_item >= 7) {
+                selected_item -= 7;
+            } else if (btn == SDL_CONTROLLER_BUTTON_DPAD_RIGHT && selected_item < 7) {
+                selected_item = (selected_item + 7 < VERSION_COUNT) ? (selected_item + 7) : (VERSION_COUNT - 1);
             } else if (btn == SDL_CONTROLLER_BUTTON_A || btn == SDL_CONTROLLER_BUTTON_START) {
                 config_apply_version(cfg, (MatrixVersion)selected_item);
                 sync_grid_with_config(grid, cfg);
             }
             return true;
         } else if (current_tab == 1) {
-            if (btn == SDL_CONTROLLER_BUTTON_DPAD_UP) selected_item = (selected_item + 4) % 5;
-            else if (btn == SDL_CONTROLLER_BUTTON_DPAD_DOWN) selected_item = (selected_item + 1) % 5;
+            if (btn == SDL_CONTROLLER_BUTTON_DPAD_UP) selected_item = (selected_item + 5) % 6;
+            else if (btn == SDL_CONTROLLER_BUTTON_DPAD_DOWN) selected_item = (selected_item + 1) % 6;
             else if (btn == SDL_CONTROLLER_BUTTON_DPAD_LEFT || btn == SDL_CONTROLLER_BUTTON_DPAD_RIGHT || btn == SDL_CONTROLLER_BUTTON_A) {
                 int delta = (btn == SDL_CONTROLLER_BUTTON_DPAD_LEFT) ? -1 : 1;
                 switch (selected_item) {
@@ -297,12 +309,13 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
                     case 2: cfg->glow_effect = !cfg->glow_effect; break;
                     case 3: cfg->bonus_glyphs = !cfg->bonus_glyphs; grid->bonus_glyphs = cfg->bonus_glyphs; break;
                     case 4: cfg->render_mode = (cfg->render_mode == RENDER_MODE_COLOR) ? RENDER_MODE_PLAYDATE : RENDER_MODE_COLOR; break;
+                    case 5: cfg->volumetric = !cfg->volumetric; grid->volumetric = cfg->volumetric; break;
                 }
             }
             return true;
         } else if (current_tab == 2) {
-            if (btn == SDL_CONTROLLER_BUTTON_DPAD_UP) selected_item = (selected_item + 6) % 7;
-            else if (btn == SDL_CONTROLLER_BUTTON_DPAD_DOWN) selected_item = (selected_item + 1) % 7;
+            if (btn == SDL_CONTROLLER_BUTTON_DPAD_UP) selected_item = (selected_item + 7) % 8;
+            else if (btn == SDL_CONTROLLER_BUTTON_DPAD_DOWN) selected_item = (selected_item + 1) % 8;
             else if (btn == SDL_CONTROLLER_BUTTON_DPAD_LEFT || btn == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
                 float dir = (btn == SDL_CONTROLLER_BUTTON_DPAD_LEFT) ? -1.0f : 1.0f;
                 switch (selected_item) {
@@ -325,16 +338,22 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
                         grid->glyph_cycle_speed = cfg->glyph_cycle_speed;
                         break;
                     case 3:
+                        cfg->forward_speed += dir * 0.05f;
+                        if (cfg->forward_speed < 0.05f) cfg->forward_speed = 0.05f;
+                        if (cfg->forward_speed > 2.00f) cfg->forward_speed = 2.00f;
+                        grid->forward_speed = cfg->forward_speed;
+                        break;
+                    case 4:
                         cfg->slant = (cfg->slant == 0.0f) ? 0.35f : (cfg->slant > 0.0f ? -0.25f : 0.0f);
                         grid->slant = cfg->slant;
                         break;
                 }
             } else if (btn == SDL_CONTROLLER_BUTTON_A) {
-                if (selected_item == 4) cfg->paused = !cfg->paused;
-                else if (selected_item == 5) {
+                if (selected_item == 5) cfg->paused = !cfg->paused;
+                else if (selected_item == 6) {
                     cfg->fullscreen = !cfg->fullscreen;
                     SDL_SetWindowFullscreen(window, cfg->fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
-                } else if (selected_item == 6) {
+                } else if (selected_item == 7) {
                     config_set_defaults(cfg);
                     sync_grid_with_config(grid, cfg);
                 }
@@ -381,12 +400,12 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
         if (current_tab == 0) {
             /* Versions grid click */
             int col_w = (panel_w - 40) / 2;
-            int row_h = 32;
+            int row_h = 28;
             for (int v = 0; v < VERSION_COUNT; v++) {
-                int col = v / 6;
-                int row = v % 6;
+                int col = v / 7;
+                int row = v % 7;
                 int item_x = panel_x + 20 + col * col_w;
-                int item_y = content_y + row * row_h;
+                int item_y = content_y + 8 + row * row_h;
                 if (is_point_in_rect(ev->button.x, ev->button.y, item_x, item_y, col_w - 10, row_h - 4)) {
                     selected_item = v;
                     config_apply_version(cfg, (MatrixVersion)v);
@@ -396,9 +415,9 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
             }
         } else if (current_tab == 1) {
             /* Effects clicks */
-            int item_h = 34;
-            for (int i = 0; i < 5; i++) {
-                int item_y = content_y + i * item_h;
+            int item_h = 32;
+            for (int i = 0; i < 6; i++) {
+                int item_y = content_y + 10 + i * item_h;
                 if (is_point_in_rect(ev->button.x, ev->button.y, panel_x + 20, item_y, panel_w - 40, item_h - 4)) {
                     selected_item = i;
                     switch (i) {
@@ -407,15 +426,16 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
                         case 2: cfg->glow_effect = !cfg->glow_effect; break;
                         case 3: cfg->bonus_glyphs = !cfg->bonus_glyphs; grid->bonus_glyphs = cfg->bonus_glyphs; break;
                         case 4: cfg->render_mode = (cfg->render_mode == RENDER_MODE_COLOR) ? RENDER_MODE_PLAYDATE : RENDER_MODE_COLOR; break;
+                        case 5: cfg->volumetric = !cfg->volumetric; grid->volumetric = cfg->volumetric; break;
                     }
                     return true;
                 }
             }
         } else if (current_tab == 2) {
             /* Tuning clicks */
-            int item_h = 34;
-            for (int i = 0; i < 7; i++) {
-                int item_y = content_y + i * item_h;
+            int item_h = 32;
+            for (int i = 0; i < 8; i++) {
+                int item_y = content_y + 10 + i * item_h;
                 if (is_point_in_rect(ev->button.x, ev->button.y, panel_x + 20, item_y, panel_w - 40, item_h - 4)) {
                     selected_item = i;
                     switch (i) {
@@ -432,17 +452,21 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
                             grid->glyph_cycle_speed = cfg->glyph_cycle_speed;
                             break;
                         case 3:
+                            cfg->forward_speed = (cfg->forward_speed >= 1.5f) ? 0.1f : (cfg->forward_speed + 0.15f);
+                            grid->forward_speed = cfg->forward_speed;
+                            break;
+                        case 4:
                             cfg->slant = (cfg->slant == 0.0f) ? 0.35f : (cfg->slant > 0.0f ? -0.25f : 0.0f);
                             grid->slant = cfg->slant;
                             break;
-                        case 4:
+                        case 5:
                             cfg->paused = !cfg->paused;
                             break;
-                        case 5:
+                        case 6:
                             cfg->fullscreen = !cfg->fullscreen;
                             SDL_SetWindowFullscreen(window, cfg->fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
                             break;
-                        case 6:
+                        case 7:
                             config_set_defaults(cfg);
                             sync_grid_with_config(grid, cfg);
                             break;
@@ -539,13 +563,13 @@ void gui_render(SDL_Renderer *renderer, const AppConfig *cfg, const MatrixGrid *
         draw_text(renderer, panel_x + 20, content_y - 8, "Select a canonical Matrix version (press ENTER or click):", c_gray, 1);
 
         int col_w = (panel_w - 40) / 2;
-        int row_h = 32;
+        int row_h = 28;
 
         for (int v = 0; v < VERSION_COUNT; v++) {
-            int col = v / 6;
-            int row = v % 6;
+            int col = v / 7;
+            int row = v % 7;
             int item_x = panel_x + 20 + col * col_w;
-            int item_y = content_y + 14 + row * row_h;
+            int item_y = content_y + 8 + row * row_h;
             bool is_selected = (v == selected_item);
             bool is_active = (v == (int)cfg->version);
 
@@ -559,9 +583,9 @@ void gui_render(SDL_Renderer *renderer, const AppConfig *cfg, const MatrixGrid *
 
             char label[64];
             snprintf(label, sizeof(label), "%s %s", is_active ? ">" : " ", config_version_name((MatrixVersion)v));
-            draw_text(renderer, item_x + 8, item_y + 8, label, is_active ? c_gold : (is_selected ? c_white : c_green_bright), 1);
+            draw_text(renderer, item_x + 8, item_y + 7, label, is_active ? c_gold : (is_selected ? c_white : c_green_bright), 1);
             if (is_active) {
-                draw_text(renderer, item_x + col_w - 60, item_y + 8, "[ACTIVE]", c_gold, 1);
+                draw_text(renderer, item_x + col_w - 60, item_y + 7, "[ACTIVE]", c_gold, 1);
             }
         }
 
@@ -576,17 +600,17 @@ void gui_render(SDL_Renderer *renderer, const AppConfig *cfg, const MatrixGrid *
         /* TAB 1: EFFECTS */
         draw_text(renderer, panel_x + 20, content_y - 8, "Configure coloration, post-processing & flag stripes:", c_gray, 1);
 
-        int item_h = 36;
-        for (int i = 0; i < 5; i++) {
-            int item_y = content_y + 14 + i * item_h;
+        int item_h = 32;
+        for (int i = 0; i < 6; i++) {
+            int item_y = content_y + 10 + i * item_h;
             bool is_sel = (i == selected_item);
 
             if (is_sel) {
-                fill_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 6, c_bg_selected);
-                draw_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 6, c_green_bright);
+                fill_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 5, c_bg_selected);
+                draw_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 5, c_green_bright);
             } else {
-                fill_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 6, c_bg_item);
-                draw_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 6, c_green_dim);
+                fill_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 5, c_bg_item);
+                draw_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 5, c_green_dim);
             }
 
             char label[64];
@@ -612,17 +636,21 @@ void gui_render(SDL_Renderer *renderer, const AppConfig *cfg, const MatrixGrid *
                     snprintf(label, sizeof(label), "Renderer Engine");
                     snprintf(value, sizeof(value), "< %s >", (cfg->render_mode == RENDER_MODE_COLOR) ? "Color Phosphor" : "Playdate 1-Bit Dither");
                     break;
+                case 5:
+                    snprintf(label, sizeof(label), "3D Volumetric Mode");
+                    snprintf(value, sizeof(value), "[ %s ]", cfg->volumetric ? "ENABLED" : "DISABLED");
+                    break;
             }
 
-            draw_text(renderer, panel_x + 32, item_y + 10, label, is_sel ? c_white : c_green_bright, 1);
-            draw_text(renderer, panel_x + panel_w - 250, item_y + 10, value, is_sel ? c_gold : c_cyan, 1);
+            draw_text(renderer, panel_x + 32, item_y + 8, label, is_sel ? c_white : c_green_bright, 1);
+            draw_text(renderer, panel_x + panel_w - 250, item_y + 8, value, is_sel ? c_gold : c_cyan, 1);
         }
 
         /* Color swatch preview */
-        int swatch_y = content_y + 14 + 5 * item_h + 10;
+        int swatch_y = content_y + 10 + 6 * item_h + 8;
         draw_text(renderer, panel_x + 24, swatch_y, "Live Preview Swatches:", c_gray, 1);
         int swatch_w = 40;
-        int swatch_h = 20;
+        int swatch_h = 18;
 
         if (cfg->effect == EFFECT_PRIDE) {
             static const SDL_Color swatches[6] = {
@@ -630,7 +658,7 @@ void gui_render(SDL_Renderer *renderer, const AppConfig *cfg, const MatrixGrid *
                 {0, 128, 38, 255}, {0, 77, 255, 255}, {117, 7, 135, 255}
             };
             for (int s = 0; s < 6; s++) {
-                fill_rect(renderer, panel_x + 24 + s * (swatch_w + 6), swatch_y + 18, swatch_w, swatch_h, swatches[s]);
+                fill_rect(renderer, panel_x + 24 + s * (swatch_w + 6), swatch_y + 16, swatch_w, swatch_h, swatches[s]);
             }
         } else if (cfg->effect == EFFECT_TRANS_PRIDE) {
             static const SDL_Color swatches[5] = {
@@ -638,29 +666,29 @@ void gui_render(SDL_Renderer *renderer, const AppConfig *cfg, const MatrixGrid *
                 {245, 169, 184, 255}, {92, 206, 250, 255}
             };
             for (int s = 0; s < 5; s++) {
-                fill_rect(renderer, panel_x + 24 + s * (swatch_w + 6), swatch_y + 18, swatch_w, swatch_h, swatches[s]);
+                fill_rect(renderer, panel_x + 24 + s * (swatch_w + 6), swatch_y + 16, swatch_w, swatch_h, swatches[s]);
             }
         } else {
             /* Standard palette swatch */
-            fill_rect(renderer, panel_x + 24, swatch_y + 18, swatch_w * 4, swatch_h, (SDL_Color){0, 255, 65, 255});
-            draw_text(renderer, panel_x + 24 + swatch_w * 4 + 10, swatch_y + 24, "[Tone-Mapped Phosphor Gradient]", c_green_bright, 1);
+            fill_rect(renderer, panel_x + 24, swatch_y + 16, swatch_w * 4, swatch_h, (SDL_Color){0, 255, 65, 255});
+            draw_text(renderer, panel_x + 24 + swatch_w * 4 + 10, swatch_y + 20, "[Tone-Mapped Phosphor Gradient]", c_green_bright, 1);
         }
 
     } else if (current_tab == 2) {
         /* TAB 2: TUNING */
         draw_text(renderer, panel_x + 20, content_y - 8, "Adjust physical rain parameters and window settings:", c_gray, 1);
 
-        int item_h = 36;
-        for (int i = 0; i < 7; i++) {
-            int item_y = content_y + 14 + i * item_h;
+        int item_h = 32;
+        for (int i = 0; i < 8; i++) {
+            int item_y = content_y + 8 + i * item_h;
             bool is_sel = (i == selected_item);
 
             if (is_sel) {
-                fill_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 6, c_bg_selected);
-                draw_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 6, c_green_bright);
+                fill_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 5, c_bg_selected);
+                draw_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 5, c_green_bright);
             } else {
-                fill_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 6, c_bg_item);
-                draw_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 6, c_green_dim);
+                fill_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 5, c_bg_item);
+                draw_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 5, c_green_dim);
             }
 
             char label[64];
@@ -679,42 +707,48 @@ void gui_render(SDL_Renderer *renderer, const AppConfig *cfg, const MatrixGrid *
                     snprintf(value, sizeof(value), "[-/+] %.2fx", cfg->glyph_cycle_speed);
                     break;
                 case 3:
+                    snprintf(label, sizeof(label), "3D Approach Speed");
+                    snprintf(value, sizeof(value), "[-/+] %.2fx", cfg->forward_speed);
+                    break;
+                case 4:
                     snprintf(label, sizeof(label), "Rain Slant Angle");
                     snprintf(value, sizeof(value), "< %s >", (cfg->slant > 0.0f) ? "+20 deg (Right)" : (cfg->slant < 0.0f ? "-15 deg (Left)" : "0 deg (Vertical)"));
                     break;
-                case 4:
+                case 5:
                     snprintf(label, sizeof(label), "Simulation State");
                     snprintf(value, sizeof(value), "[ %s ]", cfg->paused ? "PAUSED" : "RUNNING");
                     break;
-                case 5:
+                case 6:
                     snprintf(label, sizeof(label), "Display Mode");
                     snprintf(value, sizeof(value), "[ %s ]", cfg->fullscreen ? "FULLSCREEN" : "WINDOWED");
                     break;
-                case 6:
+                case 7:
                     snprintf(label, sizeof(label), "Reset Configuration");
                     snprintf(value, sizeof(value), "[ RESTORE DEFAULTS ]");
                     break;
             }
 
-            draw_text(renderer, panel_x + 32, item_y + 10, label, is_sel ? c_white : c_green_bright, 1);
-            draw_text(renderer, panel_x + panel_w - 240, item_y + 10, value, is_sel ? c_gold : c_cyan, 1);
+            draw_text(renderer, panel_x + 32, item_y + 8, label, is_sel ? c_white : c_green_bright, 1);
+            draw_text(renderer, panel_x + panel_w - 240, item_y + 8, value, is_sel ? c_gold : c_cyan, 1);
         }
 
     } else if (current_tab == 3) {
         /* TAB 3: ABOUT */
-        int ty = content_y + 8;
+        int ty = content_y + 6;
         draw_text(renderer, panel_x + 24, ty, "MATRIX CODE RAIN (SDL2 MULTI-PLATFORM)", c_gold, 1);
-        ty += 18;
+        ty += 16;
         draw_text(renderer, panel_x + 24, ty, "Based on Rezmason's digital rain simulator:", c_gray, 1);
         ty += 14;
         draw_text(renderer, panel_x + 24, ty, "https://github.com/a18project/matrix", c_cyan, 1);
-        ty += 24;
+        ty += 22;
 
         draw_text(renderer, panel_x + 24, ty, "CONTROLS GUIDE:", c_white, 1);
         ty += 16;
         draw_text(renderer, panel_x + 32, ty, "Desktop Keyboard & Mouse:", c_green_bright, 1);
         ty += 14;
         draw_text(renderer, panel_x + 40, ty, "- TAB / F2 / Esc : Toggle or close this Settings Menu", c_gray, 1);
+        ty += 12;
+        draw_text(renderer, panel_x + 40, ty, "- 3 / V          : Quick toggle 3D Volumetric flythrough", c_gray, 1);
         ty += 12;
         draw_text(renderer, panel_x + 40, ty, "- Arrows / Mouse: Navigate options, click to select", c_gray, 1);
         ty += 12;
@@ -723,7 +757,7 @@ void gui_render(SDL_Renderer *renderer, const AppConfig *cfg, const MatrixGrid *
         draw_text(renderer, panel_x + 40, ty, "- P / C : Quick cycle palettes", c_gray, 1);
         ty += 12;
         draw_text(renderer, panel_x + 40, ty, "- Space : Pause / Resume   |   F11 : Fullscreen", c_gray, 1);
-        ty += 20;
+        ty += 18;
 
         draw_text(renderer, panel_x + 32, ty, "Handheld Gamepad (Miyoo Flip):", c_green_bright, 1);
         ty += 14;

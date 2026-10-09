@@ -362,6 +362,196 @@ static void get_stripe_color(MatrixEffect eff, int col, int num_cols, unsigned c
     }
 }
 
+typedef struct {
+    int col;
+    float depth;
+} ColumnDepthInfo;
+
+static int compare_col_depth(const void *a, const void *b) {
+    float da = ((const ColumnDepthInfo *)a)->depth;
+    float db = ((const ColumnDepthInfo *)b)->depth;
+    if (da < db) return -1;
+    if (da > db) return 1;
+    return 0;
+}
+
+static void render_volumetric(MatrixRenderer *r, const MatrixGrid *grid, const AppConfig *cfg, int win_w, int win_h) {
+    ColumnDepthInfo stack_order[256];
+    ColumnDepthInfo *order = stack_order;
+    if (grid->num_columns > 256) {
+        order = malloc(sizeof(ColumnDepthInfo) * grid->num_columns);
+        if (!order) return;
+    }
+
+    for (int i = 0; i < grid->num_columns; i++) {
+        order[i].col = i;
+        order[i].depth = grid->column_depths[i];
+    }
+
+    /* Sort ascending by depth (0.0 is farthest, 1.0 is nearest) for Painter's algorithm */
+    qsort(order, grid->num_columns, sizeof(ColumnDepthInfo), compare_col_depth);
+
+    const ColorPalette *pal = &r->palettes[cfg->palette];
+    float cell_w = (float)win_w / (float)grid->num_columns;
+    float cell_h = (float)win_h / (float)grid->num_rows;
+
+    float cx = (float)win_w * 0.5f;
+    float cy = (float)win_h * 0.5f;
+    float half_w = (float)win_w * 0.5f;
+    float half_h = (float)win_h * 0.5f;
+
+    const float z_far = 1.75f;
+    const float z_near = 0.28f;
+    const float z_ref = 0.75f;
+
+    for (int i = 0; i < grid->num_columns; i++) {
+        int col = order[i].col;
+        float z = order[i].depth;
+
+        float z_cam = z_far - z * (z_far - z_near);
+        float scale = z_ref / z_cam;
+
+        /* Smooth alpha fade at boundaries to avoid popping */
+        float alpha_fade = 1.0f;
+        if (z < 0.15f) {
+            alpha_fade = z / 0.15f;
+        } else if (z > 0.85f) {
+            alpha_fade = (1.0f - z) / 0.15f;
+        }
+        if (alpha_fade <= 0.01f) continue;
+
+        /* Depth distance attenuation: upstream dimming for distant glyphs */
+        float depth_factor = 0.35f + 0.65f * z;
+        float total_alpha_mult = alpha_fade * depth_factor;
+
+        float col_screen_x = cx + (grid->column_x_norm[col] * half_w) * scale;
+        float gw = cell_w * scale;
+        float gh = cell_h * scale;
+
+        if (gw < 3.0f || gh < 3.0f) continue;
+        if (col_screen_x + gw < 0.0f || col_screen_x - gw >= (float)win_w) continue;
+
+        int gw_i = (int)ceilf(gw);
+        int gh_i = (int)ceilf(gh);
+
+        for (int y = 0; y < grid->num_rows; y++) {
+            int idx = y * grid->num_columns + col;
+            const MatrixCell *cell = &grid->cells[idx];
+            float b = cell->brightness;
+
+            if (b <= 0.05f && !cell->is_cursor) continue;
+
+            float y_norm = ((float)y - (float)grid->num_rows * 0.5f) / ((float)grid->num_rows * 0.5f) + grid->column_y_offset[col];
+            float cell_screen_y = cy + (y_norm * half_h) * scale;
+            if (grid->slant != 0.0f) {
+                cell_screen_y += y_norm * half_h * grid->slant * scale;
+            }
+
+            SDL_Rect dst_rect = {
+                (int)roundf(col_screen_x - gw * 0.5f),
+                (int)roundf(cell_screen_y - gh * 0.5f),
+                gw_i,
+                gh_i
+            };
+
+            if (dst_rect.y + dst_rect.h < 0 || dst_rect.y >= win_h) continue;
+
+            if (cfg->render_mode == RENDER_MODE_COLOR) {
+                int spr_col = cell->glyph_index % SPRITESHEET_COLS;
+                int spr_row = cell->glyph_index / SPRITESHEET_COLS;
+                SDL_Rect src_rect = {
+                    spr_col * GLYPH_WIDTH,
+                    spr_row * GLYPH_HEIGHT,
+                    GLYPH_WIDTH,
+                    GLYPH_HEIGHT
+                };
+
+                if (cell->is_cursor) {
+                    unsigned char cr = (cfg->effect == EFFECT_PALETTE) ? pal->cursor.r : 255;
+                    unsigned char cg = (cfg->effect == EFFECT_PALETTE) ? pal->cursor.g : 255;
+                    unsigned char cb = (cfg->effect == EFFECT_PALETTE) ? pal->cursor.b : 255;
+                    unsigned char ca = (unsigned char)(255.0f * alpha_fade);
+
+                    SDL_SetTextureColorMod(r->glyph_atlas_color, cr, cg, cb);
+                    SDL_SetTextureAlphaMod(r->glyph_atlas_color, ca);
+                    SDL_RenderCopy(r->sdl_renderer, r->glyph_atlas_color, &src_rect, &dst_rect);
+
+                    if (cfg->glow_effect) {
+                        SDL_SetTextureBlendMode(r->glyph_atlas_color, SDL_BLENDMODE_ADD);
+                        SDL_SetTextureAlphaMod(r->glyph_atlas_color, (unsigned char)(110.0f * alpha_fade));
+                        int halo_pad = (int)ceilf(2.0f * scale);
+                        SDL_Rect glow_rect = {
+                            dst_rect.x - halo_pad, dst_rect.y - halo_pad,
+                            dst_rect.w + halo_pad * 2, dst_rect.h + halo_pad * 2
+                        };
+                        SDL_RenderCopy(r->sdl_renderer, r->glyph_atlas_color, &src_rect, &glow_rect);
+                        SDL_SetTextureBlendMode(r->glyph_atlas_color, SDL_BLENDMODE_BLEND);
+                    }
+                } else {
+                    unsigned char red, green, blue, alpha;
+
+                    if (cfg->effect != EFFECT_PALETTE) {
+                        unsigned char sr, sg, sb;
+                        get_stripe_color(cfg->effect, col, grid->num_columns, &sr, &sg, &sb);
+                        float factor = (b > 0.15f) ? b : 0.15f;
+                        red   = (unsigned char)((float)sr * factor);
+                        green = (unsigned char)((float)sg * factor);
+                        blue  = (unsigned char)((float)sb * factor);
+                        alpha = (unsigned char)(255.0f * (b > 0.05f ? b : 0.05f) * total_alpha_mult);
+                    } else if (b > 0.65f) {
+                        float t = (b - 0.65f) / 0.35f;
+                        red   = lerp_u8(pal->mid.r, pal->high.r, t);
+                        green = lerp_u8(pal->mid.g, pal->high.g, t);
+                        blue  = lerp_u8(pal->mid.b, pal->high.b, t);
+                        alpha = (unsigned char)(lerp_u8(210, 255, t) * total_alpha_mult);
+                    } else if (b > 0.20f) {
+                        float t = (b - 0.20f) / 0.45f;
+                        red   = lerp_u8(pal->low.r, pal->mid.r, t);
+                        green = lerp_u8(pal->low.g, pal->mid.g, t);
+                        blue  = lerp_u8(pal->low.b, pal->mid.b, t);
+                        alpha = (unsigned char)(lerp_u8(110, 210, t) * total_alpha_mult);
+                    } else {
+                        float t = (b - 0.05f) / 0.15f;
+                        red   = lerp_u8(0, pal->low.r, t);
+                        green = lerp_u8(0, pal->low.g, t);
+                        blue  = lerp_u8(0, pal->low.b, t);
+                        alpha = (unsigned char)(lerp_u8(20, 110, t) * total_alpha_mult);
+                    }
+
+                    SDL_SetTextureColorMod(r->glyph_atlas_color, red, green, blue);
+                    SDL_SetTextureAlphaMod(r->glyph_atlas_color, alpha);
+                    SDL_RenderCopy(r->sdl_renderer, r->glyph_atlas_color, &src_rect, &dst_rect);
+                }
+            } else {
+                /* Playdate 1-Bit Retro Dither Mode in 3D */
+                float eff_b = b * depth_factor;
+                int dither_step = (int)((1.0f - eff_b) * (float)(NUM_FADES - 1));
+                if (dither_step < 0) dither_step = 0;
+                if (dither_step >= NUM_FADES - 1) continue;
+
+                int item_idx = cell->glyph_index * NUM_FADES + dither_step;
+                int atlas_col = item_idx % DITHER_ITEMS_PER_ROW;
+                int atlas_row = item_idx / DITHER_ITEMS_PER_ROW;
+
+                SDL_Rect src_rect = {
+                    atlas_col * GLYPH_WIDTH,
+                    atlas_row * GLYPH_HEIGHT,
+                    GLYPH_WIDTH,
+                    GLYPH_HEIGHT
+                };
+
+                SDL_SetTextureColorMod(r->glyph_atlas_dither, 255, 255, 255);
+                SDL_SetTextureAlphaMod(r->glyph_atlas_dither, (unsigned char)(255.0f * alpha_fade));
+                SDL_RenderCopy(r->sdl_renderer, r->glyph_atlas_dither, &src_rect, &dst_rect);
+            }
+        }
+    }
+
+    if (order != stack_order) {
+        free(order);
+    }
+}
+
 void matrix_renderer_render(MatrixRenderer *r, const MatrixGrid *grid, const AppConfig *cfg) {
     if (!r || !grid || !cfg) return;
 
@@ -370,6 +560,11 @@ void matrix_renderer_render(MatrixRenderer *r, const MatrixGrid *grid, const App
 
     int win_w = 0, win_h = 0;
     SDL_GetRendererOutputSize(r->sdl_renderer, &win_w, &win_h);
+
+    if (cfg->volumetric) {
+        render_volumetric(r, grid, cfg, win_w, win_h);
+        return;
+    }
 
     float cell_w = (float)win_w / (float)grid->num_columns;
     float cell_h = (float)win_h / (float)grid->num_rows;

@@ -31,6 +31,7 @@ typedef enum {
     VERSION_BUGS,           /* Electric blue & cyan */
     VERSION_MEGACITY,       /* Revolutions Megacity glyph code */
     VERSION_PLAYDATE,       /* Playdate 1-bit monochrome dither */
+    VERSION_3D,             /* Upstream volumetric 3D camera flythrough */
     VERSION_COUNT
 } MatrixVersion;
 
@@ -83,6 +84,8 @@ typedef struct {
     float glyph_cycle_speed;
     float raindrop_length;
     float slant;            /* Rain slant factor (-0.5 to 0.5) */
+    bool volumetric;        /* 3D volumetric rain with depth & perspective */
+    float forward_speed;    /* Speed at which 3D rain approaches camera */
     bool paused;
     RenderMode render_mode;
     MatrixVersion version;

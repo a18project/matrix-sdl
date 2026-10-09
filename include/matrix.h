@@ -23,11 +23,16 @@ typedef struct {
     MatrixCell *cells;
     float *column_time_offsets;
     float *column_speed_offsets;
+    float *column_depths;         /* 3D depth z in [0.0, 1.0] */
+    float *column_x_norm;         /* 3D normalized x position */
+    float *column_y_offset;       /* 3D vertical parallax phase */
     float sim_time;
     float raindrop_length;
     float fall_speed;
     float glyph_cycle_speed;
     float slant;
+    float forward_speed;
+    bool volumetric;
     bool bonus_glyphs;
 } MatrixGrid;
 

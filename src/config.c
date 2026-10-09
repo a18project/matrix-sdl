@@ -11,6 +11,8 @@ void config_set_defaults(AppConfig *cfg) {
     cfg->glyph_cycle_speed = 1.8f;
     cfg->raindrop_length = 1.15f;
     cfg->slant = 0.0f;
+    cfg->volumetric = false;
+    cfg->forward_speed = 0.25f;
     cfg->paused = false;
     cfg->render_mode = RENDER_MODE_COLOR;
     cfg->version = VERSION_CLASSIC;
@@ -27,6 +29,7 @@ void config_set_defaults(AppConfig *cfg) {
 void config_apply_version(AppConfig *cfg, MatrixVersion ver) {
     if (!cfg || ver < 0 || ver >= VERSION_COUNT) return;
     cfg->version = ver;
+    cfg->volumetric = false;
 
     switch (ver) {
         case VERSION_CLASSIC:
@@ -148,6 +151,18 @@ void config_apply_version(AppConfig *cfg, MatrixVersion ver) {
             cfg->slant = 0.0f;
             break;
 
+        case VERSION_3D:
+            cfg->render_mode = RENDER_MODE_COLOR;
+            cfg->palette = PALETTE_CLASSIC;
+            cfg->effect = EFFECT_PALETTE;
+            cfg->volumetric = true;
+            cfg->fall_speed = 0.5f;
+            cfg->forward_speed = 0.25f;
+            cfg->raindrop_length = 0.8f;
+            cfg->glyph_cycle_speed = 1.2f;
+            cfg->slant = 0.0f;
+            break;
+
         default:
             break;
     }
@@ -167,6 +182,7 @@ const char *config_version_name(MatrixVersion ver) {
         case VERSION_BUGS:          return "Bugs (Blue Pill)";
         case VERSION_MEGACITY:      return "Megacity (Revolutions)";
         case VERSION_PLAYDATE:      return "Playdate (1-Bit Retro)";
+        case VERSION_3D:            return "3D Volumetric";
         default:                    return "Unknown";
     }
 }
@@ -197,6 +213,8 @@ const char *config_version_desc(MatrixVersion ver) {
             return "Revolutions opening titles variation with slower descent.";
         case VERSION_PLAYDATE:
             return "Authentic 32-step dithered black-and-white handheld render.";
+        case VERSION_3D:
+            return "Volumetric 3D perspective flythrough with infinite depth.";
         default:
             return "";
     }

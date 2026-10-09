@@ -7,7 +7,8 @@ A high-performance, cross-platform SDL2 C implementation of the iconic *Matrix* 
 ## ✨ Features
 
 - **In-Game Settings GUI Overlay**: Interactive cyberpunk settings menu accessible via `Tab`, `F2`, on-screen gear button, or Gamepad `SELECT`/`MENU`. Features 4 tabs: **Versions**, **Effects**, **Tuning**, and **About**.
-- **12 Matrix Versions & Modes**:
+- **13 Matrix Versions & Modes**:
+  - 🌐 **3D Volumetric**: Upstream camera flythrough with full perspective depth, scaling, and infinite approach.
   - 🟢 **Classic (1999)**: The iconic phosphor green digital rain as seen in the trilogy.
   - 🟩 **Resurrections (2021)**: Modern Matrix Resurrections code with crisp mint accents.
   - 💻 **Operator Terminal (1999)**: Rapid, flat, dense 1999 operator monitor with rapid streams.
@@ -20,6 +21,10 @@ A high-performance, cross-platform SDL2 C implementation of the iconic *Matrix* 
   - 🔵 **Bugs (Blue Pill)**: Electric cerulean & cyan code styling inspired by Bugs.
   - 🏙️ **Megacity (Revolutions)**: Revolutions opening titles variation with slower descent.
   - 🕹️ **Playdate (1-Bit Retro)**: Authentic 32-step dithered black-and-white handheld render.
+- **Volumetric 3D Perspective Flythrough**:
+  - Drops and streams move toward the camera along $Z$ depth with realistic perspective scaling ($1/Z$).
+  - Distant columns appear dimmer, denser, and smaller; foreground streams expand dynamically as they rush past the viewer.
+  - Works with **all** color palettes and effects, as well as the Playdate 1-bit dither renderer!
 - **Special Post-Processing & Stripe Effects**:
   - **Standard Palette**: Tone-mapped color gradients.
   - **Rainbow Pride Stripes**: 6-color rainbow pride flag vertical bands across columns.
@@ -40,6 +45,7 @@ A high-performance, cross-platform SDL2 C implementation of the iconic *Matrix* 
 | Key | Action |
 | :--- | :--- |
 | `Tab` / `F2` | **Toggle Settings & Effects GUI Menu** |
+| `3` / `V` | **Toggle 3D Volumetric Flythrough Mode** |
 | `Arrows` / `Mouse` | Navigate menu options, click to select / drag sliders |
 | `M` | Quick toggle Mode (**Color** ↔ **Playdate 1-Bit Dither**) |
 | `P` / `C` | Quick cycle Color Palettes |
@@ -76,7 +82,7 @@ Usage:
 Options:
   -v, --version <name>           Matrix version: classic, resurrections, operator,
                                  nightmare, paradise, palimpsest, twilight,
-                                 morpheus, trinity, bugs, megacity, playdate
+                                 morpheus, trinity, bugs, megacity, playdate, 3d
   -e, --effect <name>            Effect: palette, pride, trans, stripes
   -m, --mode <color|playdate>    Rendering mode (default: color)
   -p, --palette <name>           Color palette: classic, resurrections, operator,
@@ -85,6 +91,8 @@ Options:
   -s, --speed <float>            Fall speed multiplier (default: 1.0)
   -l, --length <float>           Raindrop tail length (default: 1.15)
   --slant <float>                Rain slant angle (-0.5 to 0.5)
+  -3, --3d, --volumetric         Volumetric 3D flythrough perspective
+  --forward-speed <float>        3D camera approach speed (default: 0.25)
   -w, --width <pixels>           Initial window width (default: 1280)
   -h, --height <pixels>          Initial window height (default: 720)
   -f, --fullscreen               Start in fullscreen mode
