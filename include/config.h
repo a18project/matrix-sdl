@@ -75,9 +75,21 @@ typedef struct {
     } low;                  /* Tail end */
 } ColorPalette;
 
+typedef enum {
+    RES_AUTO,       /* Auto-detect native display / window size */
+    RES_640x480,    /* 4:3 Classic Handheld (Miyoo Flip, RG35XX) */
+    RES_720x720,    /* 1:1 Square Handheld (RGB30, Cube) */
+    RES_1024x768,   /* 4:3 High-Res Handheld (TrimUI Brick) */
+    RES_1280x720,   /* 16:9 HD (TrimUI Smart Pro, Desktop) */
+    RES_1920x1080,  /* 16:9 Full HD */
+    RES_COUNT
+} ResolutionPreset;
+
 typedef struct {
     int window_width;
     int window_height;
+    ResolutionPreset resolution_preset;
+    bool resolution_dirty;
     bool fullscreen;
     bool vsync;
     float fall_speed;
@@ -105,5 +117,7 @@ void config_apply_version(AppConfig *cfg, MatrixVersion ver);
 const char *config_version_name(MatrixVersion ver);
 const char *config_version_desc(MatrixVersion ver);
 const char *config_effect_name(MatrixEffect eff);
+const char *config_resolution_name(ResolutionPreset res);
+void config_resolution_dims(ResolutionPreset res, int *out_w, int *out_h);
 
 #endif /* MATRIX_CONFIG_H */

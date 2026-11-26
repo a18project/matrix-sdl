@@ -1,3 +1,5 @@
+#define STBI_NO_HDR
+#define STBI_NO_LINEAR
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -559,7 +561,10 @@ void matrix_renderer_render(MatrixRenderer *r, const MatrixGrid *grid, const App
     SDL_RenderClear(r->sdl_renderer);
 
     int win_w = 0, win_h = 0;
-    SDL_GetRendererOutputSize(r->sdl_renderer, &win_w, &win_h);
+    SDL_RenderGetLogicalSize(r->sdl_renderer, &win_w, &win_h);
+    if (win_w <= 0 || win_h <= 0) {
+        SDL_GetRendererOutputSize(r->sdl_renderer, &win_w, &win_h);
+    }
 
     if (cfg->volumetric) {
         render_volumetric(r, grid, cfg, win_w, win_h);

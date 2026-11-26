@@ -135,6 +135,36 @@ static void update_window_title(SDL_Window *win, const MatrixRenderer *r, const 
     SDL_SetWindowTitle(win, title);
 }
 
+static void apply_resolution(SDL_Window *window, SDL_Renderer *sdl_renderer, MatrixGrid *grid, AppConfig *cfg) {
+    int target_w = 0, target_h = 0;
+    config_resolution_dims(cfg->resolution_preset, &target_w, &target_h);
+
+    if (target_w > 0 && target_h > 0) {
+        if (cfg->fullscreen) {
+            SDL_RenderSetLogicalSize(sdl_renderer, target_w, target_h);
+        } else {
+            SDL_RenderSetLogicalSize(sdl_renderer, 0, 0);
+            SDL_SetWindowSize(window, target_w, target_h);
+        }
+    } else {
+        /* RES_AUTO: use native display / current window output size */
+        SDL_RenderSetLogicalSize(sdl_renderer, 0, 0);
+    }
+
+    int eff_w = 0, eff_h = 0;
+    SDL_RenderGetLogicalSize(sdl_renderer, &eff_w, &eff_h);
+    if (eff_w <= 0 || eff_h <= 0) {
+        SDL_GetRendererOutputSize(sdl_renderer, &eff_w, &eff_h);
+    }
+
+    int nc = eff_w / GLYPH_WIDTH;
+    int nr = eff_h / GLYPH_HEIGHT;
+    if (nc < 1) nc = 1;
+    if (nr < 1) nr = 1;
+    matrix_grid_resize(grid, nc, nr);
+    cfg->resolution_dirty = false;
+}
+
 int main(int argc, char *argv[]) {
     AppConfig cfg;
     config_set_defaults(&cfg);
@@ -237,11 +267,18 @@ int main(int argc, char *argv[]) {
             break;
         }
 
+        if (cfg.resolution_dirty) {
+            apply_resolution(window, sdl_renderer, grid, &cfg);
+        }
+
         while (SDL_PollEvent(&ev)) {
             if (gui_handle_event(&ev, &cfg, grid, window)) {
                 if (cfg.should_quit) {
                     running = false;
                     break;
+                }
+                if (cfg.resolution_dirty) {
+                    apply_resolution(window, sdl_renderer, grid, &cfg);
                 }
                 continue;
             }
@@ -316,6 +353,7 @@ int main(int argc, char *argv[]) {
                         case SDLK_F11: {
                             cfg.fullscreen = !cfg.fullscreen;
                             SDL_SetWindowFullscreen(window, cfg.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+                            cfg.resolution_dirty = true;
                             break;
                         }
 
@@ -449,7 +487,10 @@ int main(int argc, char *argv[]) {
                     if (ev.window.event == SDL_WINDOWEVENT_RESIZED ||
                         ev.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
                         int nw = 0, nh = 0;
-                        SDL_GetRendererOutputSize(sdl_renderer, &nw, &nh);
+                        SDL_RenderGetLogicalSize(sdl_renderer, &nw, &nh);
+                        if (nw <= 0 || nh <= 0) {
+                            SDL_GetRendererOutputSize(sdl_renderer, &nw, &nh);
+                        }
                         int nc = nw / GLYPH_WIDTH;
                         int nr = nh / GLYPH_HEIGHT;
                         if (nc < 1) nc = 1;

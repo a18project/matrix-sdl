@@ -5,6 +5,8 @@ void config_set_defaults(AppConfig *cfg) {
     if (!cfg) return;
     cfg->window_width = 1280;
     cfg->window_height = 720;
+    cfg->resolution_preset = RES_AUTO;
+    cfg->resolution_dirty = false;
     cfg->fullscreen = false;
     cfg->vsync = true;
     cfg->fall_speed = 1.0f;
@@ -229,4 +231,31 @@ const char *config_effect_name(MatrixEffect eff) {
         case EFFECT_STRIPES:     return "Cyberpunk Dual Stripes";
         default:                 return "Unknown";
     }
+}
+
+const char *config_resolution_name(ResolutionPreset res) {
+    switch (res) {
+        case RES_AUTO:      return "Auto (Native)";
+        case RES_640x480:   return "640x480 (4:3)";
+        case RES_720x720:   return "720x720 (1:1)";
+        case RES_1024x768:  return "1024x768 (Brick)";
+        case RES_1280x720:  return "1280x720 (HD)";
+        case RES_1920x1080: return "1920x1080 (FHD)";
+        default:            return "Auto (Native)";
+    }
+}
+
+void config_resolution_dims(ResolutionPreset res, int *out_w, int *out_h) {
+    int w = 0, h = 0;
+    switch (res) {
+        case RES_640x480:   w = 640;  h = 480;  break;
+        case RES_720x720:   w = 720;  h = 720;  break;
+        case RES_1024x768:  w = 1024; h = 768;  break;
+        case RES_1280x720:  w = 1280; h = 720;  break;
+        case RES_1920x1080: w = 1920; h = 1080; break;
+        case RES_AUTO:
+        default:            w = 0;    h = 0;    break;
+    }
+    if (out_w) *out_w = w;
+    if (out_h) *out_h = h;
 }

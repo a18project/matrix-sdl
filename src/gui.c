@@ -160,19 +160,6 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
     }
 
     if (!cfg->settings_gui_open) {
-        /* If closed and user clicks bottom-right gear badge, open GUI */
-        if (ev->type == SDL_MOUSEBUTTONDOWN && ev->button.button == SDL_BUTTON_LEFT) {
-            int win_w = 0, win_h = 0;
-            SDL_GetWindowSize(window, &win_w, &win_h);
-            int badge_w = 140;
-            int badge_h = 24;
-            int badge_x = win_w - badge_w - 10;
-            int badge_y = win_h - badge_h - 10;
-            if (is_point_in_rect(ev->button.x, ev->button.y, badge_x, badge_y, badge_w, badge_h)) {
-                gui_open(cfg);
-                return true;
-            }
-        }
         return false;
     }
 
@@ -248,11 +235,12 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
         } else if (current_tab == 2) {
             /* TAB 2: TUNING */
             if (k == SDLK_UP) {
-                selected_item = (selected_item + 8) % 9;
+                selected_item = (selected_item + 9) % 10;
             } else if (k == SDLK_DOWN) {
-                selected_item = (selected_item + 1) % 9;
+                selected_item = (selected_item + 1) % 10;
             } else if (k == SDLK_LEFT || k == SDLK_RIGHT) {
                 float dir = (k == SDLK_LEFT) ? -1.0f : 1.0f;
+                int idir = (k == SDLK_LEFT) ? -1 : 1;
                 switch (selected_item) {
                     case 0:
                         cfg->fall_speed += dir * 0.10f;
@@ -284,6 +272,10 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
                         else cfg->slant = (dir > 0) ? 0.0f : 0.35f;
                         grid->slant = cfg->slant;
                         break;
+                    case 7:
+                        cfg->resolution_preset = (ResolutionPreset)((cfg->resolution_preset + idir + RES_COUNT) % RES_COUNT);
+                        cfg->resolution_dirty = true;
+                        break;
                 }
             } else if (k == SDLK_RETURN || k == SDLK_SPACE) {
                 if (selected_item == 5) {
@@ -291,10 +283,17 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
                 } else if (selected_item == 6) {
                     cfg->fullscreen = !cfg->fullscreen;
                     SDL_SetWindowFullscreen(window, cfg->fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+                    cfg->resolution_dirty = true;
                 } else if (selected_item == 7) {
-                    config_set_defaults(cfg);
-                    sync_grid_with_config(grid, cfg);
+                    cfg->resolution_preset = (ResolutionPreset)((cfg->resolution_preset + 1) % RES_COUNT);
+                    cfg->resolution_dirty = true;
                 } else if (selected_item == 8) {
+                    bool was_fs = cfg->fullscreen;
+                    config_set_defaults(cfg);
+                    cfg->fullscreen = was_fs;
+                    cfg->resolution_dirty = true;
+                    sync_grid_with_config(grid, cfg);
+                } else if (selected_item == 9) {
                     cfg->should_quit = true;
                 }
             }
@@ -352,10 +351,11 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
             }
             return true;
         } else if (current_tab == 2) {
-            if (btn == SDL_CONTROLLER_BUTTON_DPAD_UP) selected_item = (selected_item + 8) % 9;
-            else if (btn == SDL_CONTROLLER_BUTTON_DPAD_DOWN) selected_item = (selected_item + 1) % 9;
+            if (btn == SDL_CONTROLLER_BUTTON_DPAD_UP) selected_item = (selected_item + 9) % 10;
+            else if (btn == SDL_CONTROLLER_BUTTON_DPAD_DOWN) selected_item = (selected_item + 1) % 10;
             else if (btn == SDL_CONTROLLER_BUTTON_DPAD_LEFT || btn == SDL_CONTROLLER_BUTTON_DPAD_RIGHT) {
                 float dir = (btn == SDL_CONTROLLER_BUTTON_DPAD_LEFT) ? -1.0f : 1.0f;
+                int idir = (btn == SDL_CONTROLLER_BUTTON_DPAD_LEFT) ? -1 : 1;
                 switch (selected_item) {
                     case 0:
                         cfg->fall_speed += dir * 0.10f;
@@ -385,16 +385,27 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
                         cfg->slant = (cfg->slant == 0.0f) ? 0.35f : (cfg->slant > 0.0f ? -0.25f : 0.0f);
                         grid->slant = cfg->slant;
                         break;
+                    case 7:
+                        cfg->resolution_preset = (ResolutionPreset)((cfg->resolution_preset + idir + RES_COUNT) % RES_COUNT);
+                        cfg->resolution_dirty = true;
+                        break;
                 }
             } else if (btn == SDL_CONTROLLER_BUTTON_A) {
                 if (selected_item == 5) cfg->paused = !cfg->paused;
                 else if (selected_item == 6) {
                     cfg->fullscreen = !cfg->fullscreen;
                     SDL_SetWindowFullscreen(window, cfg->fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+                    cfg->resolution_dirty = true;
                 } else if (selected_item == 7) {
-                    config_set_defaults(cfg);
-                    sync_grid_with_config(grid, cfg);
+                    cfg->resolution_preset = (ResolutionPreset)((cfg->resolution_preset + 1) % RES_COUNT);
+                    cfg->resolution_dirty = true;
                 } else if (selected_item == 8) {
+                    bool was_fs = cfg->fullscreen;
+                    config_set_defaults(cfg);
+                    cfg->fullscreen = was_fs;
+                    cfg->resolution_dirty = true;
+                    sync_grid_with_config(grid, cfg);
+                } else if (selected_item == 9) {
                     cfg->should_quit = true;
                 }
             }
@@ -405,7 +416,13 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
     /* Mouse click navigation inside modal */
     if (ev->type == SDL_MOUSEBUTTONDOWN && ev->button.button == SDL_BUTTON_LEFT) {
         int win_w = 0, win_h = 0;
-        SDL_GetWindowSize(window, &win_w, &win_h);
+        SDL_Renderer *ren = SDL_GetRenderer(window);
+        if (ren) {
+            SDL_RenderGetLogicalSize(ren, &win_w, &win_h);
+        }
+        if (win_w <= 0 || win_h <= 0) {
+            SDL_GetWindowSize(window, &win_w, &win_h);
+        }
 
         int panel_w = (win_w < 620) ? (win_w - 20) : (win_w < 800 ? 580 : 660);
         int panel_h = (win_h < 460) ? (win_h - 20) : (win_h < 600 ? 420 : 470);
@@ -473,9 +490,9 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
             }
         } else if (current_tab == 2) {
             /* Tuning clicks */
-            int item_h = 30;
-            for (int i = 0; i < 9; i++) {
-                int item_y = content_y + 8 + i * item_h;
+            int item_h = 27;
+            for (int i = 0; i < 10; i++) {
+                int item_y = content_y + 6 + i * item_h;
                 if (is_point_in_rect(ev->button.x, ev->button.y, panel_x + 20, item_y, panel_w - 40, item_h - 4)) {
                     selected_item = i;
                     switch (i) {
@@ -505,12 +522,21 @@ bool gui_handle_event(const SDL_Event *ev, AppConfig *cfg, MatrixGrid *grid, SDL
                         case 6:
                             cfg->fullscreen = !cfg->fullscreen;
                             SDL_SetWindowFullscreen(window, cfg->fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+                            cfg->resolution_dirty = true;
                             break;
                         case 7:
+                            cfg->resolution_preset = (ResolutionPreset)((cfg->resolution_preset + 1) % RES_COUNT);
+                            cfg->resolution_dirty = true;
+                            break;
+                        case 8: {
+                            bool was_fs = cfg->fullscreen;
                             config_set_defaults(cfg);
+                            cfg->fullscreen = was_fs;
+                            cfg->resolution_dirty = true;
                             sync_grid_with_config(grid, cfg);
                             break;
-                        case 8:
+                        }
+                        case 9:
                             cfg->should_quit = true;
                             break;
                     }
@@ -530,7 +556,10 @@ void gui_render(SDL_Renderer *renderer, const AppConfig *cfg, const MatrixGrid *
     (void)grid;
 
     int win_w = 0, win_h = 0;
-    SDL_GetRendererOutputSize(renderer, &win_w, &win_h);
+    SDL_RenderGetLogicalSize(renderer, &win_w, &win_h);
+    if (win_w <= 0 || win_h <= 0) {
+        SDL_GetRendererOutputSize(renderer, &win_w, &win_h);
+    }
 
     int scale = (win_w >= 1000 && win_h >= 700) ? 2 : 1;
     (void)scale;
@@ -546,16 +575,6 @@ void gui_render(SDL_Renderer *renderer, const AppConfig *cfg, const MatrixGrid *
     SDL_Color c_bg_selected  = {0, 80, 30, 255};
 
     if (!cfg->settings_gui_open) {
-        /* Subtle gear button in bottom-right corner */
-        int badge_w = 140;
-        int badge_h = 24;
-        int badge_x = win_w - badge_w - 10;
-        int badge_y = win_h - badge_h - 10;
-
-        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-        fill_rect(renderer, badge_x, badge_y, badge_w, badge_h, (SDL_Color){10, 20, 12, 190});
-        draw_rect(renderer, badge_x, badge_y, badge_w, badge_h, c_green_dim);
-        draw_text(renderer, badge_x + 8, badge_y + 8, "[TAB: Settings]", c_green_bright, 1);
         return;
     }
 
@@ -721,17 +740,17 @@ void gui_render(SDL_Renderer *renderer, const AppConfig *cfg, const MatrixGrid *
         /* TAB 2: TUNING */
         draw_text(renderer, panel_x + 20, content_y - 8, "Adjust physical rain parameters and window settings:", c_gray, 1);
 
-        int item_h = 30;
-        for (int i = 0; i < 9; i++) {
+        int item_h = 27;
+        for (int i = 0; i < 10; i++) {
             int item_y = content_y + 6 + i * item_h;
             bool is_sel = (i == selected_item);
 
             if (is_sel) {
-                fill_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 4, (i == 8) ? (SDL_Color){140, 20, 20, 255} : c_bg_selected);
-                draw_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 4, (i == 8) ? (SDL_Color){255, 60, 60, 255} : c_green_bright);
+                fill_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 4, (i == 9) ? (SDL_Color){140, 20, 20, 255} : c_bg_selected);
+                draw_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 4, (i == 9) ? (SDL_Color){255, 60, 60, 255} : c_green_bright);
             } else {
                 fill_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 4, c_bg_item);
-                draw_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 4, (i == 8) ? (SDL_Color){140, 30, 30, 255} : c_green_dim);
+                draw_rect(renderer, panel_x + 20, item_y, panel_w - 40, item_h - 4, (i == 9) ? (SDL_Color){140, 30, 30, 255} : c_green_dim);
             }
 
             char label[64];
@@ -766,19 +785,23 @@ void gui_render(SDL_Renderer *renderer, const AppConfig *cfg, const MatrixGrid *
                     snprintf(value, sizeof(value), "[ %s ]", cfg->fullscreen ? "FULLSCREEN" : "WINDOWED");
                     break;
                 case 7:
+                    snprintf(label, sizeof(label), "Resolution");
+                    snprintf(value, sizeof(value), "< %s >", config_resolution_name(cfg->resolution_preset));
+                    break;
+                case 8:
                     snprintf(label, sizeof(label), "Reset Configuration");
                     snprintf(value, sizeof(value), "[ RESTORE DEFAULTS ]");
                     break;
-                case 8:
+                case 9:
                     snprintf(label, sizeof(label), "Exit Application");
                     snprintf(value, sizeof(value), "[ QUIT TO SYSTEM ]");
                     break;
             }
 
-            SDL_Color lbl_color = is_sel ? c_white : ((i == 8) ? (SDL_Color){255, 130, 130, 255} : c_green_bright);
-            SDL_Color val_color = is_sel ? ((i == 8) ? (SDL_Color){255, 220, 220, 255} : c_gold) : ((i == 8) ? (SDL_Color){255, 70, 70, 255} : c_cyan);
-            draw_text(renderer, panel_x + 32, item_y + 8, label, lbl_color, 1);
-            draw_text(renderer, panel_x + panel_w - 240, item_y + 8, value, val_color, 1);
+            SDL_Color lbl_color = is_sel ? c_white : ((i == 9) ? (SDL_Color){255, 130, 130, 255} : c_green_bright);
+            SDL_Color val_color = is_sel ? ((i == 9) ? (SDL_Color){255, 220, 220, 255} : c_gold) : ((i == 9) ? (SDL_Color){255, 70, 70, 255} : c_cyan);
+            draw_text(renderer, panel_x + 32, item_y + 7, label, lbl_color, 1);
+            draw_text(renderer, panel_x + panel_w - 240, item_y + 7, value, val_color, 1);
         }
 
     } else if (current_tab == 3) {
